@@ -8,8 +8,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
   private let notificationCenter = UNUserNotificationCenter.current()
   private let pushRegistrationService = PushRegistrationService.shared
   private let liveActivityService = TrainLiveActivityService.shared
-  private let debugSwift = DebugSwift()
   private let alarmManager = AlarmManager.shared
+  
+  let debugSwift = DebugSwift()
 
   func application(
     _ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession,
@@ -139,6 +140,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         ]
       }
 
+      // Configure memory leak detection
+      DebugSwift.Performance.shared.onLeakDetected { leakData in
+        print("🔴 Memory leak detected: \(leakData.message)")
+      }
+
       debugSwift.show()
     #endif
 
@@ -224,5 +230,19 @@ extension AppDelegate: @MainActor UNUserNotificationCenterDelegate {
     }
 
     await UIApplication.shared.open(url)
+  }
+}
+
+extension UIWindow {
+  open override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+    super.motionEnded(motion, with: event)
+
+    #if DEBUG
+      if motion == .motionShake {
+        if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+          appDelegate.debugSwift.toggle()
+        }
+      }
+    #endif
   }
 }
