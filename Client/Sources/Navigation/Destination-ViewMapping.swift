@@ -83,26 +83,37 @@ private struct AlarmConfigurationSheetContainer: View {
       validationResult: latestValidationResult
     )
 
-    // Select the train with alarm offset
-    do {
-      try await store.selectTrain(
-        train,
-        journeyData: journeyData,
-        alarmOffsetMinutes: offset
-      )
+    // Check if we're updating an existing journey or starting a new one
+    let isUpdatingExistingJourney =
+      store.pendingTrainForAlarmConfiguration == nil && store.selectedTrain != nil
 
-      // Clear pending data
-      store.pendingTrainForAlarmConfiguration = nil
-      store.pendingJourneyDataForAlarmConfiguration = nil
-
-      // Dismiss both the alarm configuration sheet and the parent add train view
-      // The dismiss() will handle the alarm configuration sheet
-      // We need to dismiss the parent router's sheet (AddTrainView)
-      router.parent?.presentingSheet = nil
+    if isUpdatingExistingJourney {
+      // Just update the alarm configuration for the existing journey
+      // refreshAlarmConfiguration is already called by applyAlarmConfiguration
+      // No need to restart the live activity or reschedule server alerts
       dismiss()
-    } catch {
-      // Handle error - could show an alert here
-      print("Failed to select train: \(error)")
+    } else {
+      // Starting a new journey - select the train with alarm offset
+      do {
+        try await store.selectTrain(
+          train,
+          journeyData: journeyData,
+          alarmOffsetMinutes: offset
+        )
+
+        // Clear pending data
+        store.pendingTrainForAlarmConfiguration = nil
+        store.pendingJourneyDataForAlarmConfiguration = nil
+
+        // Dismiss both the alarm configuration sheet and the parent add train view
+        // The dismiss() will handle the alarm configuration sheet
+        // We need to dismiss the parent router's sheet (AddTrainView)
+        router.parent?.presentingSheet = nil
+        dismiss()
+      } catch {
+        // Handle error - could show an alert here
+        print("Failed to select train: \(error)")
+      }
     }
   }
 }

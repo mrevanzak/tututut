@@ -242,29 +242,65 @@ extension TrainMapStore {
   ) -> AlarmValidationResult {
     // Server already normalized times, use directly
     let now = Date()
-    let minutesUntilArrival = Int(arrivalTime.timeIntervalSince(now) / 60)
-    let journeyDurationMinutes = Int(arrivalTime.timeIntervalSince(departureTime) / 60)
-    let alarmTime = arrivalTime.addingTimeInterval(-Double(offsetMinutes * 60))
 
-    // Check 1: Journey hasn't departed yet
-    if departureTime <= now {
+    // Use rounded values to avoid truncation errors near boundaries
+    let minutesUntilArrival = Int((arrivalTime.timeIntervalSince(now) / 60).rounded())
+    let journeyDurationMinutes = Int((arrivalTime.timeIntervalSince(departureTime) / 60).rounded())
+
+    // Guard: Validate input parameters
+    guard offsetMinutes > 0 else {
+      // This shouldn't happen (picker limits 1-60), but defensive programming
+      // Treat as insufficient time (fallback case)
       return .invalid(
-        .alarmTimeInPast(
+        .insufficientTimeForAlarm(
           minutesUntilArrival: minutesUntilArrival,
           requestedOffset: offsetMinutes
         ))
     }
 
-    // Check 2: Alarm time must be in the future
-    if alarmTime <= now {
+    // Check 1: Validate journey data integrity
+    // Departure must be before arrival
+    if departureTime >= arrivalTime {
+      // Invalid journey data - arrival before or equal to departure
+      // Treat as journey too short (data integrity issue)
       return .invalid(
-        .alarmTimeInPast(
+        .journeyTooShort(
+          journeyDuration: journeyDurationMinutes,
+          requestedOffset: offsetMinutes,
+          minimumRequired: offsetMinutes + 10
+        ))
+    }
+
+    // Check 2: Arrival time must be in the future
+    // If arrival is in the past, alarm cannot be set
+    if minutesUntilArrival <= 0 {
+      return .invalid(
+        .arrivalInPast(minutesUntilArrival: minutesUntilArrival)
+      )
+    }
+
+    // Check 3: Arrival time must be greater than offset
+    // If arrival time > offset time, the alarm can be set
+    if minutesUntilArrival <= offsetMinutes {
+      return .invalid(
+        .insufficientTimeForAlarm(
           minutesUntilArrival: minutesUntilArrival,
           requestedOffset: offsetMinutes
         ))
     }
 
-    // Check 3: Journey duration must be sufficient (offset + 10 minute buffer)
+    // Check 4: Alarm time must be after departure
+    // If offset >= journey duration, alarm would fire before train departs
+    if offsetMinutes >= journeyDurationMinutes {
+      return .invalid(
+        .alarmBeforeDeparture(
+          journeyDuration: journeyDurationMinutes,
+          requestedOffset: offsetMinutes
+        ))
+    }
+
+    // Check 5: Journey duration must be sufficient (offset + 10 minute buffer)
+    // This ensures there's enough time for the alarm and some buffer
     let minimumRequiredDuration = offsetMinutes + 10
     if journeyDurationMinutes < minimumRequiredDuration {
       return .invalid(
@@ -303,9 +339,15 @@ extension TrainMapStore {
     for reason: AlarmValidationResult.AlarmValidationFailureReason
   ) -> String {
     switch reason {
-    case let .alarmTimeInPast(minutesUntilArrival, requestedOffset):
+    case let .arrivalInPast(minutesUntilArrival):
       return
-        "alarm_time_in_past(minutes_until_arrival:\(minutesUntilArrival), requested_offset:\(requestedOffset))"
+        "arrival_in_past(minutes_until_arrival:\(minutesUntilArrival))"
+    case let .insufficientTimeForAlarm(minutesUntilArrival, requestedOffset):
+      return
+        "insufficient_time_for_alarm(minutes_until_arrival:\(minutesUntilArrival), requested_offset:\(requestedOffset))"
+    case let .alarmBeforeDeparture(journeyDuration, requestedOffset):
+      return
+        "alarm_before_departure(journey_duration:\(journeyDuration), requested_offset:\(requestedOffset))"
     case let .journeyTooShort(journeyDuration, requestedOffset, minimumRequired):
       return
         "journey_too_short(journey_duration:\(journeyDuration), requested_offset:\(requestedOffset), minimum_required:\(minimumRequired))"
