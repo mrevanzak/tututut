@@ -93,7 +93,7 @@ struct PrepareToDropOffView: View {
           .foregroundColor(.highlight)
 
         Label {
-          Text(context.attributes.destination.name)
+          Text("\(context.attributes.destination.name) - \(context.attributes.destination.name)")
         } icon: {
           EmptyView()
         }
@@ -323,7 +323,7 @@ struct TrainExpandedBottomView: View {
             .containerRelativeFrame(.horizontal) { size, _ in
               size * 0.25
             }
-
+            
             VStack {
               Text(context.attributes.trainName)
                 .font(.caption)
@@ -331,8 +331,9 @@ struct TrainExpandedBottomView: View {
                 .foregroundColor(.gray)
 
               Image("kereta")
+                .resizable()
                 .scaledToFit()
-                .frame(maxWidth: .infinity, maxHeight: 15)
+                .frame(maxWidth: .infinity, maxHeight: 20)
                 .padding(.bottom, -2)  // visually sit on the progress line
             }
 
@@ -360,24 +361,20 @@ struct TrainExpandedBottomView: View {
         }
 
         ZStack {
-          HStack {
-            Text("Estimasi Tiba")
-              .font(.caption)
-              .if(withPadding) { view in
-                view.padding(.leading)
-              }
-            Spacer()
-          }
-
           HStack(alignment: .center) {
-            Text(
-              timerInterval: Date()...destinationEstimatedArrival,
-              showsHours: true
-            )
-            .font(.callout)
-            .bold()
-            .foregroundColor(.highlight)
-            .multilineTextAlignment(.center)
+            VStack {
+              Text(
+                timerInterval: Date()...destinationEstimatedArrival,
+                showsHours: true
+              )
+              .font(.callout)
+              .bold()
+              .foregroundColor(.highlight)
+              .multilineTextAlignment(.center)
+              
+              Text("Estimasi Tiba")
+                .font(.caption)
+            }
           }
         }
       }
