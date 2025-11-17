@@ -67,8 +67,34 @@ final class StationProximityService: NSObject, Sendable {
   
   /// Update whether user currently has an active journey
   func updateJourneyStatus(hasActiveJourney: Bool) {
+    let wasActive = self.hasActiveJourney
     self.hasActiveJourney = hasActiveJourney
     logger.info("Journey status updated: hasActiveJourney = \(hasActiveJourney)")
+    
+    // If journey just started, clear proximity notifications and regions IMMEDIATELY
+    if hasActiveJourney && !wasActive {
+      logger.info("Journey started - clearing proximity notifications and regions")
+      
+      // Clear regions synchronously - don't wait
+      clearMonitoredRegions()
+      
+      // Clear notifications asynchronously
+      Task {
+        await clearProximityNotifications()
+      }
+    }
+    // If journey just ended, re-enable proximity notifications
+    else if !hasActiveJourney && wasActive {
+      logger.info("Journey ended - re-enabling proximity notifications")
+      Task {
+        if !currentStations.isEmpty, let location = locationManager.location {
+          await setupProximityNotifications(
+            userLocation: location.coordinate,
+            stations: currentStations
+          )
+        }
+      }
+    }
   }
   
   /// Register the notification category for station proximity alerts
@@ -92,6 +118,15 @@ final class StationProximityService: NSObject, Sendable {
   /// - Parameter stations: Array of all available stations
   func updateProximityTriggers(for stations: [Station]) async {
     currentStations = stations
+    
+    // Don't schedule notifications if user is already tracking a journey
+    guard !hasActiveJourney else {
+      logger.info("⏭️ Skipping proximity trigger setup - user has active journey")
+      // Clear any existing proximity notifications
+      await clearProximityNotifications()
+      clearMonitoredRegions()
+      return
+    }
     
     // Check authorization status
     let settings = await notificationCenter.notificationSettings()
@@ -250,12 +285,17 @@ final class StationProximityService: NSObject, Sendable {
   }
   
   private func clearMonitoredRegions() {
+    let regionCount = locationManager.monitoredRegions.count
+    var clearedCount = 0
+    
     for region in locationManager.monitoredRegions {
       if region.identifier.hasPrefix("station_") {
         locationManager.stopMonitoring(for: region)
+        clearedCount += 1
+        logger.debug("❌ Stopped monitoring region: \(region.identifier)")
       }
     }
-    logger.info("Cleared all monitored regions")
+    logger.info("Cleared \(clearedCount) of \(regionCount) monitored regions")
   }
   
   // MARK: - Debug & Testing
@@ -269,27 +309,36 @@ final class StationProximityService: NSObject, Sendable {
     logger.info("=== PROXIMITY NOTIFICATIONS DEBUG ===")
     logger.info("Total proximity notifications: \(proximity.count)")
     logger.info("Total monitored regions: \(self.locationManager.monitoredRegions.count)")
+    logger.info("🚂 Active journey: \(self.hasActiveJourney ? "YES - notifications DISABLED" : "NO - notifications ENABLED")")
     
     // Show monitored regions (for background geofencing)
     logger.info("--- MONITORED REGIONS (Background) ---")
-    for region in locationManager.monitoredRegions {
-      if let circularRegion = region as? CLCircularRegion {
-        logger.info("🎯 \(region.identifier):")
-        logger.info("   Location: \(circularRegion.center.latitude), \(circularRegion.center.longitude)")
-        logger.info("   Radius: \(circularRegion.radius)m")
-        logger.info("   Notify on entry: \(circularRegion.notifyOnEntry)")
+    if locationManager.monitoredRegions.isEmpty {
+      logger.info("   No regions currently monitored")
+    } else {
+      for region in locationManager.monitoredRegions {
+        if let circularRegion = region as? CLCircularRegion {
+          logger.info("🎯 \(region.identifier):")
+          logger.info("   Location: \(circularRegion.center.latitude), \(circularRegion.center.longitude)")
+          logger.info("   Radius: \(circularRegion.radius)m")
+          logger.info("   Notify on entry: \(circularRegion.notifyOnEntry)")
+        }
       }
     }
     
     // Show scheduled notifications
     logger.info("--- SCHEDULED NOTIFICATIONS ---")
-    for request in proximity {
-      if let trigger = request.trigger as? UNLocationNotificationTrigger {
-        let region = trigger.region as! CLCircularRegion
-        logger.info("📍 \(request.identifier):")
-        logger.info("   Location: \(region.center.latitude), \(region.center.longitude)")
-        logger.info("   Radius: \(region.radius)m")
-        logger.info("   Content: \(request.content.body)")
+    if proximity.isEmpty {
+      logger.info("   No proximity notifications scheduled")
+    } else {
+      for request in proximity {
+        if let trigger = request.trigger as? UNLocationNotificationTrigger {
+          let region = trigger.region as! CLCircularRegion
+          logger.info("📍 \(request.identifier):")
+          logger.info("   Location: \(region.center.latitude), \(region.center.longitude)")
+          logger.info("   Radius: \(region.radius)m")
+          logger.info("   Content: \(request.content.body)")
+        }
       }
     }
     
@@ -301,7 +350,6 @@ final class StationProximityService: NSObject, Sendable {
     
     let authStatus = locationManager.authorizationStatus
     logger.info("🔐 Location authorization: \(authStatus.rawValue) (\(authStatus == .authorizedAlways ? "Always - Background OK" : authStatus == .authorizedWhenInUse ? "When In Use - Background LIMITED" : "NOT AUTHORIZED"))")
-    logger.info("🚂 Active journey: \(self.hasActiveJourney ? "YES - notifications disabled" : "NO - notifications enabled")")
     logger.info("=====================================")
   }
   
@@ -394,6 +442,7 @@ extension StationProximityService: CLLocationManagerDelegate {
     
     Task { @MainActor in
       logger.info("🎯 Entered region for station: \(stationCode)")
+      logger.info("   Current journey status: hasActiveJourney = \(self.hasActiveJourney)")
       
       // Don't send notification if user is already tracking a journey
       guard !hasActiveJourney else {
