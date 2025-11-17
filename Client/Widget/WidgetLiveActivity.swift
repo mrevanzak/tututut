@@ -29,10 +29,10 @@ struct BeforeBoardingView: View {
           .foregroundColor(.highlight)
           .lineLimit(1)
           .minimumScaleFactor(0.6)
-        
+
         HStack(spacing: 0) {
           Image(systemName: "mappin")
-            
+
           Text(context.attributes.from.name)
         }
         .font(.footnote)
@@ -229,7 +229,9 @@ struct ActivitySmallView: View {
     case .beforeBoarding:
       BeforeBoardingSmallView(context: context)
     case .onBoard:
-      if let departureEstimatedTime = context.attributes.from.estimatedTime, let destinationEstimatedArrival = context.attributes.destination.estimatedTime {
+      if let departureEstimatedTime = context.attributes.from.estimatedTime,
+        let destinationEstimatedArrival = context.attributes.destination.estimatedTime
+      {
         VStack(spacing: 0) {
           Spacer()
           Text(timerInterval: Date()...destinationEstimatedArrival, showsHours: true)
@@ -287,8 +289,9 @@ struct ActivityProgressView: View {
   let context: ActivityViewContext<TrainActivityAttributes>
 
   var body: some View {
-    if let departureEstimatedTime = context.attributes.from.estimatedTime, let destinationEstimatedArrival = context.attributes.destination
-      .estimatedTime
+    if let departureEstimatedTime = context.attributes.from.estimatedTime,
+      let destinationEstimatedArrival = context.attributes.destination
+        .estimatedTime
     {
       ProgressView(
         timerInterval: departureEstimatedTime...destinationEstimatedArrival,
@@ -310,12 +313,16 @@ struct ActivityProgressView: View {
 }
 
 struct TrainExpandedBottomView: View {
+  @Environment(\.colorScheme) private var colorScheme
+
   let context: ActivityViewContext<TrainActivityAttributes>
   var withPadding: Bool = false
 
   var body: some View {
     VStack {
-      if let destinationEstimatedArrival = context.attributes.destination.estimatedTime, let departureEstimatedTime = context.attributes.from.estimatedTime {
+      if let destinationEstimatedArrival = context.attributes.destination.estimatedTime,
+        let departureEstimatedTime = context.attributes.from.estimatedTime
+      {
         Spacer()
 
         VStack(spacing: 0) {
@@ -331,15 +338,23 @@ struct TrainExpandedBottomView: View {
             .containerRelativeFrame(.horizontal) { size, _ in
               size * 0.25
             }
-            
+
             VStack {
               Text(context.attributes.trainName)
                 .font(.caption)
                 .bold()
                 .foregroundColor(.gray)
 
-              Image("kereta")
+              Image(.kereta)
                 .resizable()
+                .if(
+                  colorScheme == .light,
+                  transform: { image in
+                    image
+                      .renderingMode(.template)
+                      .foregroundColor(.black)
+                  }
+                )
                 .scaledToFit()
                 .frame(maxWidth: .infinity, maxHeight: 20)
                 .padding(.bottom, -2)  // visually sit on the progress line
@@ -379,7 +394,7 @@ struct TrainExpandedBottomView: View {
               .bold()
               .foregroundColor(.highlight)
               .multilineTextAlignment(.center)
-              
+
               Text("Estimasi Tiba")
                 .font(.caption)
             }
