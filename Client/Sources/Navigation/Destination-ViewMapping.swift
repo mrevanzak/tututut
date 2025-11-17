@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 @MainActor
@@ -34,7 +35,7 @@ func view(for destination: SheetDestination) -> some View {
 
 // MARK: - Alarm Configuration Wrapper
 
-private struct AlarmConfigurationSheetContainer: View {
+struct AlarmConfigurationSheetContainer: View {
   @Environment(TrainMapStore.self) private var store
   @Environment(\.dismiss) private var dismiss
   @Environment(Router.self) private var router

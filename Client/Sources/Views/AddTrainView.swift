@@ -5,6 +5,7 @@
 //  Created by Gilang Banyu Biru Erassunu on 22/10/25.
 //
 
+import OSLog
 import SwiftUI
 
 struct AddTrainView: View {
@@ -15,6 +16,9 @@ struct AddTrainView: View {
 
   @State private var viewModel: ViewModel = ViewModel()
   @State private var isSearchBarOverContent: Bool = false
+  @State private var isPresentingAlarmConfiguration: Bool = false
+
+  private let logger = Logger(subsystem: "kreta", category: "AddTrainView")
 
   // MARK: - Body
 
@@ -28,6 +32,9 @@ struct AddTrainView: View {
       viewModel.bootstrap(allStations: store.stations)
     }
     .background(.backgroundPrimary)
+    .sheet(isPresented: $isPresentingAlarmConfiguration) {
+      AlarmConfigurationSheetContainer()
+    }
   }
 
   // MARK: - Header View
@@ -243,19 +250,28 @@ struct AddTrainView: View {
     guard let selectedItem = viewModel.selectedTrainItem else { return }
     Task {
       let projected = await viewModel.didSelect(selectedItem)
+      logger.info(
+        "handleTrainSelectionAction resolved projected train \(projected.id, privacy: .public)")
       await handleTrainSelection(projected)
     }
   }
 
   private func handleTrainSelection(_ train: ProjectedTrain) async {
-    guard let journeyData = viewModel.trainJourneyData[train.id] else { return }
+    guard let journeyData = viewModel.trainJourneyData[train.id] else {
+      logger.error("No journeyData found for train \(train.id, privacy: .public)")
+      return
+    }
 
     if !AlarmPreferences.shared.hasCompletedInitialSetup {
+      logger.info("Alarm setup incomplete. Storing pending train \(train.id, privacy: .public)")
       // Store pending data in store for alarm configuration sheet
       store.pendingTrainForAlarmConfiguration = train
       store.pendingJourneyDataForAlarmConfiguration = journeyData
-      router.navigate(to: .sheet(.alarmConfiguration))
+      logger.info("Navigating to alarm configuration sheet")
+      isPresentingAlarmConfiguration = true
     } else {
+      logger.info(
+        "Alarm setup complete. Proceeding without sheet for train \(train.id, privacy: .public)")
       await proceedWithTrainSelection(
         train: train,
         journeyData: journeyData,
@@ -275,8 +291,12 @@ struct AddTrainView: View {
         journeyData: journeyData,
         alarmOffsetMinutes: alarmOffsetMinutes
       )
+      logger.info("Successfully selected train \(train.id, privacy: .public)")
       dismiss()
     } catch {
+      logger.error(
+        "Failed to select train \(train.id, privacy: .public): \(error.localizedDescription, privacy: .public)"
+      )
       showToast("Failed to select train: \(error)")
     }
   }
