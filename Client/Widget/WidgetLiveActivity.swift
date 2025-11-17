@@ -24,11 +24,19 @@ struct BeforeBoardingView: View {
 
       VStack(alignment: .leading, spacing: 6) {
         Text(context.attributes.trainName)
-          .font(.title2)
+          .font(.headline)
           .bold()
           .foregroundColor(.highlight)
-          .lineLimit(2)
+          .lineLimit(1)
           .minimumScaleFactor(0.6)
+        
+        HStack(spacing: 0) {
+          Image(systemName: "mappin")
+            
+          Text(context.attributes.from.name)
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
 
         // HStack(alignment: .firstTextBaseline, spacing: 6) {
         //   HStack(spacing: 4) {
