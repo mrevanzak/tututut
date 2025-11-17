@@ -31,6 +31,7 @@ struct MapControl: View {
 
   @Binding var isFollowing: Bool
   @Binding var focusTrigger: Bool
+  @Binding var userHasPanned: Bool
 
   @Namespace private var namespace
 
@@ -56,7 +57,7 @@ struct MapControl: View {
   }
 
   private var showFocusButton: Bool {
-    return !isFollowing && trainMapStore.liveTrainPosition != nil
+    return userHasPanned
   }
 
   func mapStylePicker() -> some View {
@@ -89,6 +90,6 @@ struct MapControl: View {
 }
 
 #Preview {
-  MapControl(isFollowing: .constant(true), focusTrigger: .constant(false))
+  MapControl(isFollowing: .constant(true), focusTrigger: .constant(false), userHasPanned: .constant(false))
     .padding()
 }
