@@ -175,6 +175,7 @@ struct AnimatedSearchBar: View {
         .opacity(isClearing ? 0 : 1)
         .scaleEffect(isClearing ? 0.5 : 1)
     }
+    .frame(minWidth: 44)
     .padding(.horizontal, 8)
     .padding(.vertical, 10)
     .background(.componentFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
