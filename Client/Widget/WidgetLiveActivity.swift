@@ -101,7 +101,7 @@ struct PrepareToDropOffView: View {
           .foregroundColor(.highlight)
 
         Label {
-          Text("\(context.attributes.destination.name) - \(context.attributes.destination.name)")
+          Text("\(context.attributes.destination.name)")
         } icon: {
           EmptyView()
         }
