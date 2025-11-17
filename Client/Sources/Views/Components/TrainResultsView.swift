@@ -122,9 +122,10 @@ private struct TrainFilterPicker: View {
   var body: some View {
     VStack(spacing: 0) {
       HStack {
+        Spacer()
+        
         customPickerLabel
         
-        Spacer()
       }
       .padding(.horizontal, 16)
       .padding(.bottom, 20)
