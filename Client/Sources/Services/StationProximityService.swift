@@ -24,7 +24,7 @@ final class StationProximityService: NSObject, Sendable {
   private let maxRegions = 10
   
   // Notification radius around each station (in meters)
-  private let stationRadius: CLLocationDistance = 1000 // 500 meters
+  private let stationRadius: CLLocationDistance = 500 // 500 meters
   
   // Notification category identifier
   static let categoryIdentifier = "STATION_PROXIMITY"
