@@ -22,7 +22,7 @@ struct TrainResultsView: View {
 
   var body: some View {
     ZStack {
-      trainListScrollView
+      trainList
 
       TrainFilterPicker(
         selectedFilter: Binding(
@@ -32,7 +32,8 @@ struct TrainResultsView: View {
         uniqueTrainNames: uniqueTrainNames,
         isSearchBarOverContent: isSearchBarOverContent
       )
-
+    }
+    .safeAreaInset(edge: .bottom) {
       TrainTrackButton(
         isEnabled: selectedTrainItem != nil,
         onTap: onTrainSelected
@@ -42,37 +43,30 @@ struct TrainResultsView: View {
 
   // MARK: - Private Views
 
-  private var trainListScrollView: some View {
-    ScrollView {
-      LazyVStack(spacing: 0) {
-        Color.clear
-          .frame(height: 40)
+  private var trainList: some View {
+    List {
+      scrollOffsetDetector
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
 
-        scrollOffsetDetector
-
-        ForEach(trains) { item in
-          TrainServiceRow(
-            item: item,
-            isSelected: isTrainSelected(item)
-          )
-          .contentShape(Rectangle())
-          .onTapGesture {
-            onTrainTapped(item)
-          }
-
-          Divider()
-            .padding(.horizontal)
+      ForEach(trains) { item in
+        TrainServiceRow(
+          item: item,
+          isSelected: isTrainSelected(item)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+          onTrainTapped(item)
         }
-
-        Color.clear
-          .frame(height: 100)
+        .listRowBackground(Color.clear)
       }
     }
-    .coordinateSpace(name: "scrollView")
+    .listStyle(.plain)
+    .coordinateSpace(name: "listScroll")
     .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
       isSearchBarOverContent = value < 14
     }
-    .scrollEdgeEffectStyle(.soft, for: .all)
     .overlay {
       loadingOrEmptyState
     }
@@ -83,7 +77,7 @@ struct TrainResultsView: View {
       Color.clear
         .preference(
           key: ScrollOffsetPreferenceKey.self,
-          value: geometry.frame(in: .named("scrollView")).minY
+          value: geometry.frame(in: .named("listScroll")).minY
         )
     }
     .frame(height: 0)
@@ -131,7 +125,6 @@ private struct TrainFilterPicker: View {
       }
       .padding(.horizontal, 16)
       .padding(.bottom, 20)
-      .background(topGradient)
 
       Spacer()
     }
@@ -171,18 +164,6 @@ private struct TrainFilterPicker: View {
     }
   }
 
-  private var topGradient: some View {
-    LinearGradient(
-      colors: [
-        Color.backgroundPrimary,
-        Color.backgroundPrimary.opacity(0.3),
-        Color.backgroundPrimary.opacity(0.3),
-        Color.backgroundPrimary.opacity(0),
-      ],
-      startPoint: .top,
-      endPoint: .bottom
-    )
-  }
 }
 
 // MARK: - Train Track Button
@@ -192,36 +173,19 @@ private struct TrainTrackButton: View {
   let onTap: () -> Void
 
   var body: some View {
-    VStack(spacing: 0) {
-      Spacer()
-
-      Button(action: onTap) {
-        Text("Track Kereta")
-          .font(.headline)
-          .foregroundStyle(isEnabled ? .lessDark : .sublime)
-          .frame(maxWidth: .infinity)
-          .padding()
-          .background(isEnabled ? .highlight : .inactiveButton)
-          .cornerRadius(1000)
-      }
-      .disabled(!isEnabled)
-      .padding(.horizontal, 16)
-      .padding(.top, 20)
-      .padding(.bottom, 12)
-      .background(bottomGradient)
+    Button(action: onTap) {
+      Text("Track Kereta")
+        .font(.headline)
+        .foregroundStyle(isEnabled ? .lessDark : .sublime)
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(isEnabled ? .highlight : .inactiveButton)
+        .cornerRadius(1000)
     }
-  }
-
-  private var bottomGradient: some View {
-    LinearGradient(
-      colors: [
-        Color.backgroundPrimary.opacity(0),
-        Color.backgroundPrimary.opacity(0.7),
-        Color.backgroundPrimary.opacity(0.9),
-        Color.backgroundPrimary,
-      ],
-      startPoint: .top,
-      endPoint: .bottom
-    )
+    .disabled(!isEnabled)
+    .padding(.horizontal, 16)
+    .padding(.top, 20)
+    .padding(.bottom, 12)
+    .background(Color.backgroundPrimary)
   }
 }

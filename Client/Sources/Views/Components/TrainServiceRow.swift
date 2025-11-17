@@ -59,7 +59,6 @@ struct TrainServiceRow: View {
 
       Spacer()
     }
-    .padding()
     .background(isSelected ? .backgroundSecondary : Color.clear)
   }
 
