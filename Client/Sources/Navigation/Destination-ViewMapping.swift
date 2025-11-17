@@ -17,22 +17,16 @@ func view(for destination: SheetDestination) -> some View {
     switch destination {
     case .feedback:
       FeedbackBoardScreen()
-        .presentationDetents([.large])
-        .presentationDragIndicator(.hidden)
     case .addTrain:
       AddTrainView()
         .interactiveDismissDisabled(true)
         .presentationDragIndicator(.hidden)
     case .shareJourney:
       ShareScreen()
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
     case .alarmConfiguration:
       AlarmConfigurationSheetContainer()
     case .permissionsOnboarding:
       PermissionsOnboardingScreen()
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
     }
   }
 }
@@ -41,10 +35,14 @@ func view(for destination: SheetDestination) -> some View {
 
 private struct AlarmConfigurationSheetContainer: View {
   @Environment(TrainMapStore.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  @Environment(Router.self) private var router
   @State private var latestValidationResult: AlarmValidationResult = .valid()
 
   var body: some View {
-    if let journeyData = store.selectedJourneyData, store.selectedTrain != nil {
+    if let train = store.pendingTrainForAlarmConfiguration ?? store.selectedTrain,
+      let journeyData = store.pendingJourneyDataForAlarmConfiguration ?? store.selectedJourneyData
+    {
       AlarmConfigurationSheet(
         defaultOffset: AlarmPreferences.shared.defaultAlarmOffsetMinutes,
         onValidate: { offset in
@@ -56,22 +54,56 @@ private struct AlarmConfigurationSheetContainer: View {
           latestValidationResult = result
           return result
         },
-        onContinue: { offset in
-          let validationSnapshot = latestValidationResult
+        onContinue: { selectedOffset in
           Task {
-            await store.applyAlarmConfiguration(
-              offsetMinutes: offset,
-              validationResult: validationSnapshot
+            await handleAlarmConfigured(
+              offset: selectedOffset,
+              train: train,
+              journeyData: journeyData
             )
           }
         }
       )
     } else {
       ContentUnavailableView(
-        "Perjalanan Tidak Aktif",
+        "No Train Selected",
         systemImage: "train.side.front.car",
-        description: Text("Silakan pilih perjalanan kereta untuk mengatur alarm.")
+        description: Text("Please select a train first")
       )
+    }
+  }
+
+  private func handleAlarmConfigured(
+    offset: Int,
+    train: ProjectedTrain,
+    journeyData: TrainJourneyData
+  ) async {
+    // Apply alarm configuration (saves preferences and tracks analytics)
+    await store.applyAlarmConfiguration(
+      offsetMinutes: offset,
+      validationResult: latestValidationResult
+    )
+
+    // Select the train with alarm offset
+    do {
+      try await store.selectTrain(
+        train,
+        journeyData: journeyData,
+        alarmOffsetMinutes: offset
+      )
+
+      // Clear pending data
+      store.pendingTrainForAlarmConfiguration = nil
+      store.pendingJourneyDataForAlarmConfiguration = nil
+
+      // Dismiss both the alarm configuration sheet and the parent add train view
+      // The dismiss() will handle the alarm configuration sheet
+      // We need to dismiss the parent router's sheet (AddTrainView)
+      router.parent?.presentingSheet = nil
+      dismiss()
+    } catch {
+      // Handle error - could show an alert here
+      print("Failed to select train: \(error)")
     }
   }
 }

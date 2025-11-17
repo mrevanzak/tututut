@@ -33,6 +33,10 @@ final class TrainMapStore {
     }
   }
 
+  // Pending train/journey data for alarm configuration
+  var pendingTrainForAlarmConfiguration: ProjectedTrain?
+  var pendingJourneyDataForAlarmConfiguration: TrainJourneyData?
+
   // Timestamp for triggering live position updates (must be observable)
   private var projectionTimestamp: Date = Date()
 
@@ -110,7 +114,7 @@ final class TrainMapStore {
           let stations = try await stationsResult
           self.stations = stations
           try cacheService.saveStations(stations)
-          
+
           // Update proximity triggers with new station data
           await proximityService.updateProximityTriggers(for: stations)
         } catch {
@@ -120,7 +124,7 @@ final class TrainMapStore {
 
       } else {
         try loadCachedData()
-        
+
         // Update proximity triggers with cached station data
         await proximityService.updateProximityTriggers(for: stations)
       }
@@ -197,7 +201,7 @@ extension TrainMapStore {
     selectedTrain = train
     selectedJourneyData = journeyData
     startProjectionUpdates()
-    
+
     // Update proximity service that user now has active journey
     proximityService.updateJourneyStatus(hasActiveJourney: true)
 
@@ -624,7 +628,7 @@ extension TrainMapStore {
     }
 
     cancelPendingTripReminder()
-    
+
     // Update proximity service that user no longer has active journey
     proximityService.updateJourneyStatus(hasActiveJourney: false)
 
@@ -635,11 +639,11 @@ extension TrainMapStore {
   func loadSelectedTrainFromCache() async throws {
     selectedTrain = try cacheService.loadSelectedTrain()
     selectedJourneyData = try cacheService.loadJourneyData()
-    
+
     // Update proximity service based on whether we have an active journey
     let hasJourney = selectedTrain != nil && selectedJourneyData != nil
     proximityService.updateJourneyStatus(hasActiveJourney: hasJourney)
-    
+
     if selectedTrain != nil {
       startProjectionUpdates()
     }

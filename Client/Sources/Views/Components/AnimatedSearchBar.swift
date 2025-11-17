@@ -40,8 +40,10 @@ struct AnimatedSearchBar: View {
         .buttonStyle(ChipButtonStyle())
         .transition(
           .asymmetric(
-            insertion: .move(edge: .leading).combined(with: .opacity),
-            removal: .scale.combined(with: .opacity)
+            insertion: .scale(scale: 0.8)
+              .combined(with: .opacity)
+              .combined(with: .offset(x: -20)),
+            removal: .scale(scale: 0.8).combined(with: .opacity)
           )
         )
         .sensoryFeedback(.selection, trigger: clearingDeparture)
@@ -52,7 +54,7 @@ struct AnimatedSearchBar: View {
         Image(systemName: "arrow.right")
           .font(.caption)
           .foregroundStyle(.tertiary)
-          .transition(.scale.combined(with: .opacity))
+          .transition(.scale(scale: 0.5).combined(with: .opacity))
       }
 
       // Arrival station chip (visible from date step onwards, unless clearing)
@@ -71,8 +73,10 @@ struct AnimatedSearchBar: View {
         .buttonStyle(ChipButtonStyle())
         .transition(
           .asymmetric(
-            insertion: .move(edge: .leading).combined(with: .opacity),
-            removal: .scale.combined(with: .opacity)
+            insertion: .scale(scale: 0.8)
+              .combined(with: .opacity)
+              .combined(with: .offset(x: -20)),
+            removal: .scale(scale: 0.8).combined(with: .opacity)
           )
         )
         .sensoryFeedback(.selection, trigger: clearingArrival)
@@ -83,8 +87,12 @@ struct AnimatedSearchBar: View {
         searchTextField
           .transition(
             .asymmetric(
-              insertion: .move(edge: .trailing).combined(with: .opacity),
-              removal: .move(edge: .leading).combined(with: .opacity)
+              insertion: .scale(scale: 0.95)
+                .combined(with: .opacity)
+                .combined(with: .offset(x: 20)),
+              removal: .scale(scale: 0.95)
+                .combined(with: .opacity)
+                .combined(with: .offset(x: -20))
             ))
       }
 
@@ -93,8 +101,12 @@ struct AnimatedSearchBar: View {
         dateTextField
           .transition(
             .asymmetric(
-              insertion: .move(edge: .trailing).combined(with: .opacity),
-              removal: .move(edge: .leading).combined(with: .opacity)
+              insertion: .scale(scale: 0.95)
+                .combined(with: .opacity)
+                .combined(with: .offset(x: 20)),
+              removal: .scale(scale: 0.95)
+                .combined(with: .opacity)
+                .combined(with: .offset(x: -20))
             ))
       }
 
@@ -108,16 +120,18 @@ struct AnimatedSearchBar: View {
         .buttonStyle(ChipButtonStyle())
         .transition(
           .asymmetric(
-            insertion: .move(edge: .trailing).combined(with: .opacity),
-            removal: .scale.combined(with: .opacity)
+            insertion: .scale(scale: 0.8)
+              .combined(with: .opacity)
+              .combined(with: .offset(x: 20)),
+            removal: .scale(scale: 0.8).combined(with: .opacity)
           ))
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .animation(.spring(response: 0.4, dampingFraction: 0.75), value: step)
-    .animation(.spring(response: 0.4, dampingFraction: 0.75), value: departureStation?.id)
-    .animation(.spring(response: 0.4, dampingFraction: 0.75), value: arrivalStation?.id)
-    .animation(.spring(response: 0.4, dampingFraction: 0.75), value: selectedDate)
+    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: step)
+    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: departureStation?.id)
+    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: arrivalStation?.id)
+    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: selectedDate)
   }
 
   private var searchTextField: some View {
@@ -154,17 +168,15 @@ struct AnimatedSearchBar: View {
   }
 
   private func stationChip(_ station: Station, id: String, isClearing: Bool) -> some View {
-    HStack(spacing: 3) {
+    HStack {
       Text(station.code)
         .font(.callout)
         .foregroundStyle(.sublime)
         .opacity(isClearing ? 0 : 1)
         .scaleEffect(isClearing ? 0.5 : 1)
     }
-    .foregroundStyle(.primary)
     .padding(.horizontal, 8)
     .padding(.vertical, 10)
-    .frame(minWidth: 60)
     .background(.componentFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     .matchedGeometryEffect(id: id, in: animation)
     .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

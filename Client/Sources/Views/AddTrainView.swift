@@ -8,15 +8,15 @@
 import SwiftUI
 
 struct AddTrainView: View {
+  @Environment(Router.self) private var router
   @Environment(TrainMapStore.self) private var store
   @Environment(\.dismiss) private var dismiss
   @Environment(\.showToast) private var showToast
 
   @State private var viewModel: ViewModel = ViewModel()
   @State private var isSearchBarOverContent: Bool = false
-  @State private var showAlarmConfiguration = false
-  @State private var pendingTrain: ProjectedTrain?
-  @State private var pendingJourneyData: TrainJourneyData?
+
+  // MARK: - Body
 
   var body: some View {
     VStack(spacing: 0) {
@@ -28,85 +28,74 @@ struct AddTrainView: View {
       viewModel.bootstrap(allStations: store.stations)
     }
     .background(.backgroundPrimary)
-    .sheet(isPresented: $showAlarmConfiguration) {
-      if let train = pendingTrain, let journeyData = pendingJourneyData {
-        AlarmConfigurationSheet(
-          defaultOffset: AlarmPreferences.shared.defaultAlarmOffsetMinutes,
-          onValidate: { offset in
-            return store.validateAlarmTiming(
-              offsetMinutes: offset,
-              departureTime: journeyData.userSelectedDepartureTime,
-              arrivalTime: journeyData.userSelectedArrivalTime
-            )
-          },
-          onContinue: { selectedOffset in
-            Task {
-              await handleAlarmConfigured(
-                offset: selectedOffset,
-                train: train,
-                journeyData: journeyData
-              )
-            }
-          }
-        )
-      }
-    }
   }
 
-  // MARK: - Private Views
+  // MARK: - Header View
 
   private func headerView() -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      HStack {
-        VStack(alignment: .leading) {
-          Text("Tambah Perjalanan Kereta")
-            .font(.title2.weight(.bold))
-
-          // Subtitle
-          Text(viewModel.showCalendar ? "Pilih Tanggal" : viewModel.stepTitle)
-            .font(.callout)
-            .foregroundStyle(.secondary)
-
-        }
-
-        Spacer()
-
-        Button {
-          dismiss()
-        } label: {
-          Image(systemName: "xmark.circle.fill")
-            .symbolRenderingMode(.palette)
-            .foregroundStyle(.textSecondary, .primary)
-            .font(.largeTitle)
-        }
-        .foregroundStyle(.backgroundSecondary)
-        .glassEffect(.regular.tint(.backgroundSecondary))
-
-      }
-
-      // Animated search bar
-      AnimatedSearchBar(
-        step: viewModel.currentStep,
-        departureStation: viewModel.selectedDepartureStation,
-        arrivalStation: viewModel.selectedArrivalStation,
-        selectedDate: viewModel.selectedDate,
-        searchText: $viewModel.searchText,
-        onDepartureChipTap: {
-          viewModel.goBackToDeparture()
-        },
-        onArrivalChipTap: {
-          viewModel.goBackToArrival()
-        },
-        onDateChipTap: {
-          viewModel.goBackToDate()
-        },
-        onDateTextSubmit: {
-          viewModel.parseAndSelectDate(from: viewModel.searchText)
-        }
-      )
+      headerTitleSection
+      searchBarSection
     }
     .padding()
   }
+
+  private var headerTitleSection: some View {
+    HStack {
+      VStack(alignment: .leading) {
+        Text("Tambah Perjalanan Kereta")
+          .font(.title2.weight(.bold))
+
+        StepTitleView(
+          text: viewModel.showCalendar ? "Pilih Tanggal" : viewModel.stepTitle,
+          showCalendar: viewModel.showCalendar
+        )
+        .font(.callout)
+        .foregroundStyle(.secondary)
+      }
+
+      Spacer()
+
+      closeButton
+    }
+  }
+
+  private var closeButton: some View {
+    Button {
+      dismiss()
+    } label: {
+      Image(systemName: "xmark.circle.fill")
+        .symbolRenderingMode(.palette)
+        .foregroundStyle(.textSecondary, .primary)
+        .font(.largeTitle)
+    }
+    .foregroundStyle(.backgroundSecondary)
+    .glassEffect(.regular.tint(.backgroundSecondary))
+  }
+
+  private var searchBarSection: some View {
+    AnimatedSearchBar(
+      step: viewModel.currentStep,
+      departureStation: viewModel.selectedDepartureStation,
+      arrivalStation: viewModel.selectedArrivalStation,
+      selectedDate: viewModel.selectedDate,
+      searchText: $viewModel.searchText,
+      onDepartureChipTap: {
+        viewModel.goBackToDeparture()
+      },
+      onArrivalChipTap: {
+        viewModel.goBackToArrival()
+      },
+      onDateChipTap: {
+        viewModel.goBackToDate()
+      },
+      onDateTextSubmit: {
+        viewModel.parseAndSelectDate(from: viewModel.searchText)
+      }
+    )
+  }
+
+  // MARK: - Content View
 
   @ViewBuilder
   private func contentView() -> some View {
@@ -114,81 +103,104 @@ struct AddTrainView: View {
     case .departure, .arrival:
       stationListView()
     case .date:
-      if viewModel.showCalendar {
-        calendarView()
-      } else {
-        datePickerView()
-      }
+      dateSelectionView()
     case .results:
       trainResultsView()
     }
   }
 
-  private func stationListView() -> some View {
-    ScrollView {
-      LazyVStack(spacing: 0) {
-        ForEach(viewModel.filteredStations) { station in
-          StationRow(station: station)
-            .onTapGesture {
-              viewModel.selectStation(station)
-            }
+  // MARK: - Station List View
 
-          Divider()
-            .padding(.horizontal)
+  private func stationListView() -> some View {
+    List(viewModel.filteredStations) { station in
+      StationRow(station: station)
+        .onTapGesture {
+          viewModel.selectStation(station)
         }
-      }
+        .listRowBackground(Color.clear)
     }
+    .listStyle(.plain)
     .overlay {
-      if viewModel.isLoadingConnections {
-        ProgressView()
-          .controlSize(.large)
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
-          .background(.backgroundPrimary)
-      } else if viewModel.filteredStations.isEmpty {
-        ContentUnavailableView.search(text: viewModel.searchText)
-      }
+      stationListOverlay
+    }
+  }
+
+  @ViewBuilder
+  private var stationListOverlay: some View {
+    if viewModel.isLoadingConnections {
+      ProgressView()
+        .controlSize(.large)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.backgroundPrimary)
+    } else if viewModel.filteredStations.isEmpty {
+      ContentUnavailableView.search(text: viewModel.searchText)
+    }
+  }
+
+  // MARK: - Date Selection View
+
+  @ViewBuilder
+  private func dateSelectionView() -> some View {
+    if viewModel.showCalendar {
+      calendarView()
+    } else {
+      datePickerView()
     }
   }
 
   private func datePickerView() -> some View {
     VStack(spacing: 16) {
-      DateOptionRow(
-        icon: "calendar.badge.clock",
-        title: "Hari ini",
-        subtitle: Date().formatted(.dateTime.weekday(.wide).day().month(.wide))
-      )
-      .onTapGesture {
-        viewModel.selectDate(Date())
-      }
-
+      todayOption
       Divider()
-
-      DateOptionRow(
-        icon: "calendar",
-        title: "Besok",
-        subtitle: (Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date())
-          .formatted(.dateTime.weekday(.wide).day().month(.wide))
-      )
-      .onTapGesture {
-        if let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) {
-          viewModel.selectDate(tomorrow)
-        }
-      }
-
+      tomorrowOption
       Divider()
-
-      DateOptionRow(
-        icon: "calendar.badge.plus",
-        title: "Pilih berdasarkan hari",
-        subtitle: ""
-      )
-      .onTapGesture {
-        viewModel.showCalendarView()
-      }
-
+      customDateOption
       Spacer()
     }
     .padding()
+  }
+
+  private var todayOption: some View {
+    DateOptionRow(
+      icon: "calendar.badge.clock",
+      title: "Hari ini",
+      subtitle: Date().formatted(.dateTime.weekday(.wide).day().month(.wide))
+    )
+    .onTapGesture {
+      viewModel.selectDate(Date())
+    }
+  }
+
+  private var tomorrowOption: some View {
+    DateOptionRow(
+      icon: "calendar",
+      title: "Besok",
+      subtitle: tomorrowDateString
+    )
+    .onTapGesture {
+      if let tomorrow = tomorrowDate {
+        viewModel.selectDate(tomorrow)
+      }
+    }
+  }
+
+  private var customDateOption: some View {
+    DateOptionRow(
+      icon: "calendar.badge.plus",
+      title: "Pilih berdasarkan hari",
+      subtitle: ""
+    )
+    .onTapGesture {
+      viewModel.showCalendarView()
+    }
+  }
+
+  private var tomorrowDate: Date? {
+    Calendar.current.date(byAdding: .day, value: 1, to: Date())
+  }
+
+  private var tomorrowDateString: String {
+    (tomorrowDate ?? Date()).formatted(.dateTime.weekday(.wide).day().month(.wide))
   }
 
   private func calendarView() -> some View {
@@ -206,207 +218,50 @@ struct AddTrainView: View {
     )
   }
 
+  // MARK: - Train Results View
+
   private func trainResultsView() -> some View {
-    ZStack {
-      ScrollView {
-        LazyVStack(spacing: 0) {
-          // Add top padding to prevent content from hiding under search bar
-          Color.clear
-            .frame(height: 40)
+    TrainResultsView(
+      trains: viewModel.searchableTrains,
+      uniqueTrainNames: viewModel.uniqueTrainNames,
+      selectedTrainNameFilter: viewModel.selectedTrainNameFilter,
+      isLoading: viewModel.isLoadingTrains,
+      isTrainSelected: { viewModel.isTrainSelected($0) },
+      onTrainTapped: { viewModel.toggleTrainSelection($0) },
+      onTrainSelected: {
+        handleTrainSelectionAction()
+      },
+      onFilterChanged: { viewModel.selectedTrainNameFilter = $0 },
+      selectedTrainItem: viewModel.selectedTrainItem,
+      isSearchBarOverContent: $isSearchBarOverContent
+    )
+  }
 
-          // Invisible geometry reader to detect scroll position
-          GeometryReader { geometry in
-            Color.clear
-              .preference(
-                key: ScrollOffsetPreferenceKey.self,
-                value: geometry.frame(in: .named("scrollView")).minY
-              )
-          }
-          .frame(height: 0)
+  // MARK: - Train Selection Handlers
 
-          ForEach(viewModel.searchableTrains) { item in
-            TrainServiceRow(
-              item: item,
-              isSelected: viewModel.isTrainSelected(item)
-            )
-            .contentShape(Rectangle())
-            .onTapGesture {
-              viewModel.toggleTrainSelection(item)
-            }
-
-            Divider()
-              .padding(.horizontal)
-          }
-
-          // Add bottom padding to prevent content from hiding under button
-          Color.clear
-            .frame(height: 100)
-        }
-      }
-      .coordinateSpace(name: "scrollView")
-      .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-        // When content scrolls up past the search bar area
-        isSearchBarOverContent = value < 14
-      }
-      .scrollEdgeEffectStyle(.soft, for: .all)
-      .overlay {
-        if viewModel.isLoadingTrains {
-          ProgressView()
-            .controlSize(.large)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.backgroundPrimary)
-        } else if viewModel.searchableTrains.isEmpty {
-          ContentUnavailableView(
-            viewModel.selectedTrainNameFilter == "Semua Kereta" ? "Tidak ada kereta tersedia" : "Tidak ditemukan",
-            systemImage: "train.side.front.car",
-            description: Text(
-              viewModel.selectedTrainNameFilter == "Semua Kereta"
-                ? "Tidak ada layanan kereta untuk rute ini pada tanggal yang dipilih"
-                : "Tidak ada kereta '\(viewModel.selectedTrainNameFilter)' untuk rute ini"
-            )
-          )
-        }
-      }
-
-      // Floating picker at top with gradient blur
-      VStack(spacing: 0) {
-        HStack {
-          ZStack {
-            // 1. Your custom label – purely visual
-            HStack(spacing: 8) {
-              Text(viewModel.selectedTrainNameFilter)
-                .foregroundStyle(.primary)
-
-              Image(systemName: "chevron.down")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-            }
-            .frame(minWidth: 140, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-              .componentFill.opacity(isSearchBarOverContent ? 0.2 : 0.1),
-              in: RoundedRectangle(cornerRadius: 24, style: .continuous)
-            )
-            .glassEffect()
-            .animation(.easeInOut(duration: 0.25), value: isSearchBarOverContent)
-
-            // 2. Invisible Picker on top – only for interaction
-            Picker("", selection: $viewModel.selectedTrainNameFilter) {
-              ForEach(viewModel.uniqueTrainNames, id: \.self) { trainName in
-                Text(trainName).tag(trainName)
-              }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .opacity(0.02)                    // clickable, but not really visible
-            .contentShape(Rectangle())        // full area tappable
-          }
-
-          Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 20)
-        .background(
-          LinearGradient(
-            colors: [
-              Color.backgroundPrimary,
-              Color.backgroundPrimary.opacity(0.3),
-              Color.backgroundPrimary.opacity(0.3),
-              Color.backgroundPrimary.opacity(0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-          )
-        )
-
-        Spacer()
-      }
-
-      // Floating button at bottom with gradient blur
-      VStack(spacing: 0) {
-        Spacer()
-
-        Button {
-          guard let selectedItem = viewModel.selectedTrainItem else { return }
-          Task {
-            let projected = await viewModel.didSelect(selectedItem)
-            await handleTrainSelection(projected)
-          }
-        } label: {
-          Text("Track Kereta")
-            .font(.headline)
-            .foregroundStyle(viewModel.selectedTrainItem != nil ? .lessDark : .sublime)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(viewModel.selectedTrainItem != nil ? .highlight : .inactiveButton)
-            .cornerRadius(1000)
-        }
-        .disabled(viewModel.selectedTrainItem == nil)
-        .padding(.horizontal, 16)
-        .padding(.top, 20)
-        .padding(.bottom, 12)
-        .background(
-          LinearGradient(
-            colors: [
-              Color.backgroundPrimary.opacity(0),
-              Color.backgroundPrimary.opacity(0.7),
-              Color.backgroundPrimary.opacity(0.9),
-              Color.backgroundPrimary,
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-          )
-        )
-      }
+  private func handleTrainSelectionAction() {
+    guard let selectedItem = viewModel.selectedTrainItem else { return }
+    Task {
+      let projected = await viewModel.didSelect(selectedItem)
+      await handleTrainSelection(projected)
     }
   }
 
   private func handleTrainSelection(_ train: ProjectedTrain) async {
-    let journeyData = viewModel.trainJourneyData[train.id]
-    guard let journeyData = journeyData else { return }
+    guard let journeyData = viewModel.trainJourneyData[train.id] else { return }
 
-    // Check if this is the first time user is starting a journey
     if !AlarmPreferences.shared.hasCompletedInitialSetup {
-      // Store pending train and journey data
-      pendingTrain = train
-      pendingJourneyData = journeyData
-      // Show alarm configuration sheet
-      showAlarmConfiguration = true
+      // Store pending data in store for alarm configuration sheet
+      store.pendingTrainForAlarmConfiguration = train
+      store.pendingJourneyDataForAlarmConfiguration = journeyData
+      router.navigate(to: .sheet(.alarmConfiguration))
     } else {
-      // Use existing preference
       await proceedWithTrainSelection(
         train: train,
         journeyData: journeyData,
         alarmOffsetMinutes: nil
       )
     }
-  }
-
-  private func handleAlarmConfigured(
-    offset: Int,
-    train: ProjectedTrain,
-    journeyData: TrainJourneyData
-  ) async {
-    // Save the configured offset
-    AlarmPreferences.shared.defaultAlarmOffsetMinutes = offset
-    
-    // Mark initial setup as complete
-    AlarmPreferences.shared.markInitialSetupComplete()
-    
-    // Track alarm configuration
-    AnalyticsEventService.shared.trackAlarmConfigured(
-      offsetMinutes: offset,
-      isValid: true,
-      validationFailureReason: nil
-    )
-    
-    // Proceed with train selection
-    await proceedWithTrainSelection(
-      train: train,
-      journeyData: journeyData,
-      alarmOffsetMinutes: offset
-    )
   }
 
   private func proceedWithTrainSelection(
@@ -427,22 +282,11 @@ struct AddTrainView: View {
   }
 }
 
-// MARK: - Scroll Tracking
-
-struct ScrollOffsetPreferenceKey: PreferenceKey {
-  static let defaultValue: CGFloat = 0
-
-  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-    value = nextValue()
-  }
-}
-
 // MARK: - Preview
 
 #Preview("Add Train View") {
   let store = TrainMapStore.preview
 
-  // Add more sample stations for a realistic preview
   store.stations = [
     Station(
       id: "GMR",
@@ -484,4 +328,3 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
   return AddTrainView()
     .environment(store)
 }
-
