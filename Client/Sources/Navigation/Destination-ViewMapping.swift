@@ -23,6 +23,7 @@ func view(for destination: SheetDestination) -> some View {
     case .addTrain:
       AddTrainView()
         .presentationDragIndicator(.hidden)
+        .interactiveDismissDisabled(true)
     case .shareJourney:
       ShareScreen()
     case .alarmConfiguration:
