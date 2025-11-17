@@ -1,11 +1,14 @@
 import SwiftUI
 
+@MainActor
 @ViewBuilder
 func view(for destination: FullScreenDestination) -> some View {
   Group {
     switch destination {
     case .arrival(let stationCode, let stationName):
       TrainArriveScreen(stationCode: stationCode, stationName: stationName)
+    case .permissionsOnboarding:
+      PermissionsOnboardingScreen()
     }
   }
 }
@@ -24,8 +27,6 @@ func view(for destination: SheetDestination) -> some View {
       ShareScreen()
     case .alarmConfiguration:
       AlarmConfigurationSheetContainer()
-    case .permissionsOnboarding:
-      PermissionsOnboardingScreen()
     }
   }
 }

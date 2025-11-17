@@ -35,7 +35,6 @@ enum SheetDestination: Hashable, CustomStringConvertible {
   case addTrain
   case shareJourney  // Add this new case
   case alarmConfiguration
-  case permissionsOnboarding
 
   var description: String {
     switch self {
@@ -43,7 +42,6 @@ enum SheetDestination: Hashable, CustomStringConvertible {
     case .addTrain: ".addTrain"
     case .shareJourney: ".shareJourney"  // Add this
     case .alarmConfiguration: ".alarmConfiguration"
-    case .permissionsOnboarding: ".permissionsOnboarding"
     }
   }
 }
@@ -55,19 +53,20 @@ extension SheetDestination: Identifiable {
     case .addTrain: "addTrain"
     case .shareJourney: "shareJourney"  // Add this
     case .alarmConfiguration: "alarmConfiguration"
-    case .permissionsOnboarding: "permissionsOnboarding"
     }
   }
 }
 
 enum FullScreenDestination: Hashable {
   case arrival(stationCode: String, stationName: String)
+  case permissionsOnboarding
 }
 
 extension FullScreenDestination: CustomStringConvertible {
   var description: String {
     switch self {
     case let .arrival(stationCode, stationName): ".arrival(\(stationCode), \(stationName))"
+    case .permissionsOnboarding: ".permissionsOnboarding"
     }
   }
 }
@@ -76,6 +75,7 @@ extension FullScreenDestination: Identifiable {
   var id: String {
     switch self {
     case let .arrival(stationCode, stationName): "\(stationCode)-\(stationName)"
+    case .permissionsOnboarding: "permissionsOnboarding"
     }
   }
 }
