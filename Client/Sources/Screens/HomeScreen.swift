@@ -56,12 +56,13 @@ struct HomeScreen: View {
           .sheet(isPresented: .constant(true)) {
             // Bottom card or full journey view
             Group {
-              if selectedDetent == .large, let train = trainMapStore.selectedTrain {
+              if selectedDetent == .large, let train = trainMapStore.selectedTrain, let selectedDate = trainMapStore.selectedJourneyData?.selectedDate {
                 // Full journey progress view
                 let displayTrain = trainMapStore.liveTrainPosition ?? train
                 JourneyProgressView(
                   train: displayTrain,
                   journeyData: trainMapStore.selectedJourneyData,
+                  selectedDate: selectedDate,
                   onDelete: {
                     deleteTrain()
                     selectedDetent = .height(240)
@@ -178,11 +179,9 @@ struct HomeScreen: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .foregroundStyle(.primary)
-                .portal(id: "trainName", .source)
               Text("(\(train.code))")
                 .fontWeight(.bold)
                 .foregroundStyle(.sublime)
-                .portal(id: "trainCode", .source)
             }
             
             if let date = trainMapStore.selectedJourneyData?.selectedDate {

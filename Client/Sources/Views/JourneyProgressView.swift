@@ -11,37 +11,45 @@ import SwiftUI
 struct JourneyProgressView: View {
   let train: ProjectedTrain
   let journeyData: TrainJourneyData?
+  let selectedDate: Date
   let onDelete: () -> Void
-
+  
   @State private var timelineItems: [StationTimelineItem] = []
   @State private var isLoadingTimeline = true
   @State private var isCardOverContent: Bool = false
   @State private var timer: Timer?
   @State private var hasScrolledToMarker = false  // Track if we've scrolled on appear
   private let trainStopService = TrainStopService()
-
+  
   @Environment(\.colorScheme) private var colorScheme
-
+  
   var body: some View {
     VStack(spacing: 0) {
       // Train name header - fixed, not scrollable
-      HStack {
-        Text("\(train.name)")
-          .font(.title3.weight(.bold))
-          .foregroundStyle(.primary)
-          .portal(id: "trainName", .destination)
-
-        Text("(\(train.code))")
-          .fontWeight(.bold)
-          .foregroundStyle(.sublime)
-          .portal(id: "trainCode", .destination)
-
+      VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 4) {
+          Text(train.name)
+            .font(.title2)
+            .fontWeight(.bold)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .foregroundStyle(.primary)
+          Text("(\(train.code))")
+            .fontWeight(.bold)
+            .foregroundStyle(.sublime)
+        }
+        
+        Text(selectedDate.formatted(.dateTime.day().month(.wide).year()))
+          .font(.subheadline)
+          .foregroundStyle(.blue)
+        
       }
       .padding(.top, 20)
       .padding(.bottom, 4)
-      .frame(maxWidth: .infinity)
+      .padding(.horizontal, 16)
+      .frame(maxWidth: .infinity, alignment: .leading)
       .background(.backgroundPrimary)
-
+      
       // Scrollable content with floating card
       ZStack(alignment: .top) {
         ZStack(alignment: .bottom) {
@@ -51,7 +59,7 @@ struct JourneyProgressView: View {
                 // Top padding to prevent content from hiding under card
                 Color.clear
                   .frame(height: 140)
-
+                
                 // Invisible geometry reader to detect scroll position
                 GeometryReader { geometry in
                   Color.clear
@@ -61,7 +69,7 @@ struct JourneyProgressView: View {
                     )
                 }
                 .frame(height: 0)
-
+                
                 // Timeline list
                 if isLoadingTimeline {
                   ProgressView()
@@ -89,7 +97,7 @@ struct JourneyProgressView: View {
             }
           }
           .background(.backgroundPrimary)
-
+          
           // Bottom gradient fade
           LinearGradient(
             colors: [
@@ -105,7 +113,7 @@ struct JourneyProgressView: View {
           .frame(maxWidth: .infinity)
           .allowsHitTesting(false)
         }
-
+        
         // Floating train card with gradient background
         VStack(spacing: 0) {
           // Train card with conditional glass effect
@@ -138,7 +146,7 @@ struct JourneyProgressView: View {
               endPoint: .bottom
             )
           )
-
+          
           Spacer()
         }
       }
@@ -158,56 +166,56 @@ struct JourneyProgressView: View {
       updateCurrentStation(newFromStationId: newFromStationId)
     }
   }
-
+  
   // MARK: - Helper Methods
-
+  
   private func startTimer() {
     stopTimer()
     timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
       updateTimelineProgress()
     }
   }
-
+  
   private func stopTimer() {
     timer?.invalidate()
     timer = nil
   }
-
+  
   private func updateTimelineProgress() {
     // Only update progress values, don't rebuild timeline
     // This prevents jarring refreshes when train arrives at stations
     timelineItems = timelineItems.map { item in
       var updatedItem = item
-
+      
       // Recalculate progress to next station for all items
       if let currentIndex = timelineItems.firstIndex(where: { $0.id == item.id }),
-        currentIndex < timelineItems.count - 1
+         currentIndex < timelineItems.count - 1
       {
         let nextItem = timelineItems[currentIndex + 1]
         let currentDeparture = item.departureTime ?? item.arrivalTime
         let nextArrival = nextItem.arrivalTime
-
+        
         updatedItem.progressToNext = StationTimelineItem.calculateProgress(
           from: currentDeparture,
           to: nextArrival
         )
       }
-
+      
       return updatedItem
     }
   }
-
+  
   private func updateCurrentStation(newFromStationId: String?) {
     // Update station states locally without API call
     // All schedule data is already loaded, we just need to update which station is current
     guard let newFromStationId = newFromStationId else { return }
-
+    
     var foundCurrent = false
     timelineItems = timelineItems.map { item in
       // Determine if this is the new current station
       let isCurrent = item.station.id == newFromStationId && !foundCurrent
       if isCurrent { foundCurrent = true }
-
+      
       // Determine new state based on position relative to current station
       let newState: StationTimelineItem.StationState
       if foundCurrent && !isCurrent {
@@ -217,10 +225,10 @@ struct JourneyProgressView: View {
       } else {
         newState = .completed
       }
-
+      
       // Only create new item if state changed
       guard newState != item.state else { return item }
-
+      
       return StationTimelineItem(
         id: item.id,
         station: item.station,
@@ -232,7 +240,7 @@ struct JourneyProgressView: View {
       )
     }
   }
-
+  
   private func scrollToCurrentStation(proxy: ScrollViewProxy) {
     // Find the current station (the one with the train marker)
     if let currentStation = timelineItems.first(where: { $0.state == .current }) {
@@ -243,21 +251,21 @@ struct JourneyProgressView: View {
       hasScrolledToMarker = true
     }
   }
-
+  
   private func loadTimeline() async {
     isLoadingTimeline = true
     defer { isLoadingTimeline = false }
-
+    
     // Get current segment's from station to determine progress
     let currentSegmentFromStationId = train.fromStation?.id ?? train.fromStation?.code
-
+    
     // Use selected date from journey data, or fall back to today
     let selectedDate = journeyData?.selectedDate ?? Date()
-
+    
     // Get user's destination station ID
     let userDestinationId =
-      journeyData?.userSelectedToStation.id ?? journeyData?.userSelectedToStation.code
-
+    journeyData?.userSelectedToStation.id ?? journeyData?.userSelectedToStation.code
+    
     // Use new service to get only actual stops
     let items = await StationTimelineItem.buildTimelineFromStops(
       trainCode: train.code,
@@ -266,7 +274,7 @@ struct JourneyProgressView: View {
       selectedDate: selectedDate,
       userDestinationStationId: userDestinationId
     )
-
+    
     timelineItems = items
   }
 }
@@ -300,7 +308,7 @@ struct JourneyProgressView: View {
       city: "Bandung"
     ),
   ]
-
+  
   let segments = [
     JourneySegment(
       fromStationId: "GMR",
@@ -324,7 +332,7 @@ struct JourneyProgressView: View {
       routeId: "r3"
     ),
   ]
-
+  
   let journeyData = TrainJourneyData(
     trainId: "T1",
     segments: segments,
@@ -335,7 +343,7 @@ struct JourneyProgressView: View {
     userSelectedArrivalTime: Date().addingTimeInterval(3600),
     selectedDate: Date()
   )
-
+  
   let train = ProjectedTrain(
     id: "T1-0",
     code: "T1",
@@ -353,10 +361,11 @@ struct JourneyProgressView: View {
     journeyDeparture: Date().addingTimeInterval(-3600),
     journeyArrival: Date().addingTimeInterval(3600)
   )
-
+  
   JourneyProgressView(
     train: train,
     journeyData: journeyData,
+    selectedDate: Date(),
     onDelete: {}
   )
 }
