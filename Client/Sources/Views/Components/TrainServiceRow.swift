@@ -9,8 +9,7 @@ import SwiftUI
 
 struct TrainServiceRow: View {
   let item: JourneyService.AvailableTrainItem
-  var isSelected: Bool = false
-
+  
   var body: some View {
     HStack(alignment: .center, spacing: 16) {
       // Train service details
@@ -22,7 +21,7 @@ struct TrainServiceRow: View {
             .font(.subheadline)
             .foregroundStyle(.textSecondary)
         }
-
+        
         // Route information
         HStack(spacing: 8) {
           // Departure station
@@ -30,25 +29,25 @@ struct TrainServiceRow: View {
             Text(item.fromStationCode ?? "--")
               .font(.subheadline)
               .foregroundStyle(.textSecondary)
-
+            
             Text(
               formatTime(item.segmentDeparture)
             )
             .font(.subheadline).bold()
           }
-
+          
           // Direction arrow
           Image(systemName: "arrow.right.square.fill")
             .symbolRenderingMode(.palette)
             .foregroundStyle(.backgroundPrimary, .highlight)
             .font(.subheadline)
-
+          
           // Arrival station
           HStack(spacing: 4) {
             Text(item.toStationCode ?? "--")
               .font(.subheadline)
               .foregroundStyle(.textSecondary)
-
+            
             Text(
               formatTime(item.segmentArrival)
             )
@@ -56,12 +55,11 @@ struct TrainServiceRow: View {
           }
         }
       }
-
+      
       Spacer()
     }
-    .background(isSelected ? .backgroundSecondary : Color.clear)
   }
-
+  
   private func formatTime(_ date: Date?) -> String {
     guard let date else { return "--:--" }
     return date.formatted(.dateTime.hour().minute())
@@ -83,7 +81,7 @@ struct TrainServiceRow: View {
       city: nil
     ),
   ]
-
+  
   // Create test item by decoding from JSON since AvailableTrainItem has custom Decodable
   let testJSON: [String: Any] = [
     "id": "T1",
@@ -101,15 +99,15 @@ struct TrainServiceRow: View {
     "toStationCode": stations[1].code,
     "durationMinutes": 30,
   ]
-
+  
   let item = try! JSONDecoder().decode(
     JourneyService.AvailableTrainItem.self,
     from: JSONSerialization.data(withJSONObject: testJSON)
   )
-
+  
   return VStack(spacing: 0) {
-    TrainServiceRow(item: item, isSelected: false)
+    TrainServiceRow(item: item)
     Divider()
-    TrainServiceRow(item: item, isSelected: true)
+    TrainServiceRow(item: item)
   }
 }

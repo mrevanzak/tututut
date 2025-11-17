@@ -54,7 +54,7 @@ struct TrainCard: View {
         Image(colorScheme.keretaName)
           .resizable()
           .aspectRatio(contentMode: .fill)
-          .frame(width: 120, height: 18)
+          .frame(width: 115, height: 20)
           .frame(maxWidth: .infinity)
         
         ZStack(alignment: .top) {
@@ -68,7 +68,7 @@ struct TrainCard: View {
           
         }
       }
-      .frame(minWidth: 150)
+      .frame(minWidth: 155)
       
       // Arrival station
       VStack(spacing: 4) {
@@ -87,7 +87,7 @@ struct TrainCard: View {
       }
       .frame(maxWidth: .infinity)
     }
-    .padding(.horizontal)
+    .padding(.horizontal, 8)
     .padding(.vertical, 16)
   }
   
@@ -99,7 +99,7 @@ struct TrainCard: View {
       Image(colorScheme.keretaName)
         .resizable()
         .aspectRatio(contentMode: .fill)
-        .frame(width: 120, height: 18)
+        .frame(width: 115, height: 20)
         .padding(.top, 4)
       
       // Journey details without train image
@@ -135,7 +135,7 @@ struct TrainCard: View {
               
           }
         }
-        .frame(minWidth: 150)
+        .frame(minWidth: 155)
         
         
         // Arrival station

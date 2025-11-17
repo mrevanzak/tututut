@@ -17,13 +17,13 @@ struct TrainResultsView: View {
   let onTrainSelected: () -> Void
   let onFilterChanged: (String) -> Void
   let selectedTrainItem: JourneyService.AvailableTrainItem?
-
+  
   @Binding var isSearchBarOverContent: Bool
-
+  
   var body: some View {
     ZStack {
       trainList
-
+      
       TrainFilterPicker(
         selectedFilter: Binding(
           get: { selectedTrainNameFilter },
@@ -40,26 +40,29 @@ struct TrainResultsView: View {
       )
     }
   }
-
+  
   // MARK: - Private Views
-
+  
   private var trainList: some View {
     List {
       scrollOffsetDetector
         .listRowInsets(EdgeInsets())
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
-
+      
       ForEach(trains) { item in
+        let selected = isTrainSelected(item)
+        
         TrainServiceRow(
-          item: item,
-          isSelected: isTrainSelected(item)
+          item: item
         )
         .contentShape(Rectangle())
         .onTapGesture {
           onTrainTapped(item)
         }
-        .listRowBackground(Color.clear)
+        .listRowBackground(
+          selected ? Color.backgroundSecondary : Color.clear
+        )
       }
     }
     .listStyle(.plain)
@@ -71,7 +74,7 @@ struct TrainResultsView: View {
       loadingOrEmptyState
     }
   }
-
+  
   private var scrollOffsetDetector: some View {
     GeometryReader { geometry in
       Color.clear
@@ -82,7 +85,7 @@ struct TrainResultsView: View {
     }
     .frame(height: 0)
   }
-
+  
   @ViewBuilder
   private var loadingOrEmptyState: some View {
     if isLoading {
@@ -94,16 +97,16 @@ struct TrainResultsView: View {
       emptyStateView
     }
   }
-
+  
   private var emptyStateView: some View {
     ContentUnavailableView(
       selectedTrainNameFilter == "Semua Kereta"
-        ? "Tidak ada kereta tersedia" : "Tidak ditemukan",
+      ? "Tidak ada kereta tersedia" : "Tidak ditemukan",
       systemImage: "train.side.front.car",
       description: Text(
         selectedTrainNameFilter == "Semua Kereta"
-          ? "Tidak ada layanan kereta untuk rute ini pada tanggal yang dipilih"
-          : "Tidak ada kereta '\(selectedTrainNameFilter)' untuk rute ini"
+        ? "Tidak ada layanan kereta untuk rute ini pada tanggal yang dipilih"
+        : "Tidak ada kereta '\(selectedTrainNameFilter)' untuk rute ini"
       )
     )
   }
@@ -115,33 +118,33 @@ private struct TrainFilterPicker: View {
   @Binding var selectedFilter: String
   let uniqueTrainNames: [String]
   let isSearchBarOverContent: Bool
-
+  
   var body: some View {
     VStack(spacing: 0) {
       HStack {
         customPickerLabel
-
+        
         Spacer()
       }
       .padding(.horizontal, 16)
       .padding(.bottom, 20)
-
+      
       Spacer()
     }
   }
-
+  
   private var customPickerLabel: some View {
     ZStack {
       // Visual label
       HStack(spacing: 8) {
         Text(selectedFilter)
           .foregroundStyle(.primary)
-
+        
         Image(systemName: "chevron.down")
           .font(.footnote.weight(.semibold))
           .foregroundStyle(.secondary)
       }
-      .frame(minWidth: 140, alignment: .leading)
+      .frame(alignment: .leading)
       .padding(.horizontal, 12)
       .padding(.vertical, 8)
       .background(
@@ -150,7 +153,7 @@ private struct TrainFilterPicker: View {
       )
       .glassEffect()
       .animation(.easeInOut(duration: 0.25), value: isSearchBarOverContent)
-
+      
       // Invisible picker for interaction
       Picker("", selection: $selectedFilter) {
         ForEach(uniqueTrainNames, id: \.self) { trainName in
@@ -163,7 +166,7 @@ private struct TrainFilterPicker: View {
       .contentShape(Rectangle())
     }
   }
-
+  
 }
 
 // MARK: - Train Track Button
@@ -171,7 +174,7 @@ private struct TrainFilterPicker: View {
 private struct TrainTrackButton: View {
   let isEnabled: Bool
   let onTap: () -> Void
-
+  
   var body: some View {
     Button(action: onTap) {
       Text("Track Kereta")
