@@ -33,7 +33,6 @@ struct PermissionsOnboardingScreen: View {
 
         }
         .padding()
-        .padding(.bottom, 140)
       }
       .background(Color.backgroundPrimary)
       .navigationBarTitleDisplayMode(.inline)
