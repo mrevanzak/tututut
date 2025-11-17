@@ -1,5 +1,5 @@
 {
-  "originHash" : "7dbc61b8442a1eaddc1f2933d260e0284120c4bd13f9c09f2b46d90bf1dd5505",
+  "originHash" : "cea7c77977cd50e1045a55e09e081f132298c3fcc5fb25dcc0e8f25b894079a3",
   "pins" : [
     {
       "identity" : "calendarview",
@@ -35,15 +35,6 @@
       "state" : {
         "revision" : "b0cb4fdf23e51849cc2460bdc6de795c3bcca99d",
         "version" : "0.6.4"
-      }
-    },
-    {
-      "identity" : "jwtdecode.swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/auth0/JWTDecode.swift.git",
-      "state" : {
-        "revision" : "36a5ce735a61c4bc119593f43ce2c027b4ca7392",
-        "version" : "3.3.0"
       }
     },
     {
@@ -98,15 +89,6 @@
       "state" : {
         "revision" : "e1e94efb9d5a688af85c607ae34a8b56961ca118",
         "version" : "8.57.1"
-      }
-    },
-    {
-      "identity" : "stripe-ios-spm",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/stripe/stripe-ios-spm",
-      "state" : {
-        "revision" : "f4f28a0b358011089e4538059d443eccff183382",
-        "version" : "24.25.0"
       }
     },
     {
