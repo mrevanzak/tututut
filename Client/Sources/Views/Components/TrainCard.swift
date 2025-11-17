@@ -10,6 +10,7 @@ import SwiftUI
 
 struct TrainCard: View {
   @Environment(Router.self) private var router
+  @Environment(\.colorScheme) private var colorScheme
   let train: ProjectedTrain
   let journeyData: TrainJourneyData?
   let onDelete: () -> Void
@@ -49,10 +50,10 @@ struct TrainCard: View {
       
       // Train icon - aligned with station codes
       VStack(spacing: 12) {
-        Image("keretaDark")
+        Image(colorScheme.keretaName)
           .resizable()
           .scaledToFit()
-          .frame(width: 120)
+          .frame(width: 120, height: 20)
           .frame(maxWidth: .infinity)
         
         durationStatusView
@@ -85,10 +86,10 @@ struct TrainCard: View {
   private var fullSheetView: some View {
     VStack(spacing: 0) {
       // Train image at top of journey details
-      Image("keretaDark")
+      Image(colorScheme.keretaName)
         .resizable()
         .aspectRatio(contentMode: .fit)
-        .frame(width: 140, height: 20)
+        .frame(width: 120, height: 20)
         .padding(.top, 8)
       
       // Journey details without train image
