@@ -19,7 +19,6 @@ func view(for destination: SheetDestination) -> some View {
       FeedbackBoardScreen()
     case .addTrain:
       AddTrainView()
-        .interactiveDismissDisabled(true)
         .presentationDragIndicator(.hidden)
     case .shareJourney:
       ShareScreen()
