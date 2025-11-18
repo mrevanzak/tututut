@@ -9,12 +9,21 @@ import Foundation
 import SwiftUI
 
 extension ColorScheme {
-    var keretaName: String {
-        switch self {
-        case .dark:
-            return "keretaDark"
-        default:
-            return "keretaLight"
-        }
+  var keretaName: String {
+    switch self {
+    case .dark:
+      return "keretaDark"
+    default:
+      return "keretaLight"
     }
+  }
+  
+  var keretaBackground: String {
+    switch self {
+    case .dark:
+      return "keretaLowerBackgroundDark"
+    default:
+      return "keretaLowerBackgroundLight"
+    }
+  }
 }

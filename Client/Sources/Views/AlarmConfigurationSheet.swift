@@ -7,7 +7,9 @@ struct AlarmValidationResult {
   let reason: AlarmValidationFailureReason?
 
   enum AlarmValidationFailureReason {
-    case alarmTimeInPast(minutesUntilArrival: Int, requestedOffset: Int)
+    case arrivalInPast(minutesUntilArrival: Int)
+    case insufficientTimeForAlarm(minutesUntilArrival: Int, requestedOffset: Int)
+    case alarmBeforeDeparture(journeyDuration: Int, requestedOffset: Int)
     case journeyTooShort(journeyDuration: Int, requestedOffset: Int, minimumRequired: Int)
   }
 
@@ -31,6 +33,7 @@ struct AlarmConfigurationSheet: View {
 
   let onContinue: (Int) -> Void
   let onValidate: ((Int) -> AlarmValidationResult)?
+  let defaultOffset: Int
 
   // MARK: - Initialization
 
@@ -39,6 +42,7 @@ struct AlarmConfigurationSheet: View {
     onValidate: ((Int) -> AlarmValidationResult)? = nil,
     onContinue: @escaping (Int) -> Void
   ) {
+    self.defaultOffset = defaultOffset
     self._selectedOffset = State(initialValue: defaultOffset)
     self.onValidate = onValidate
     self.onContinue = onContinue
@@ -75,7 +79,45 @@ struct AlarmConfigurationSheet: View {
       } message: {
         alertMessage
       }
+      .onAppear {
+        // Pre-validate default offset when sheet appears
+        // If invalid, suggest a valid offset
+        if let validate = onValidate {
+          let result = validate(selectedOffset)
+          if !result.isValid {
+            // Try to find a valid offset
+            if let validOffset = findValidOffset(
+              startingFrom: selectedOffset,
+              validate: validate
+            ) {
+              selectedOffset = validOffset
+            }
+          }
+        }
+      }
     }
+  }
+
+  // MARK: - Helper Methods
+
+  /// Find a valid offset starting from the given offset, trying smaller values first
+  private func findValidOffset(
+    startingFrom offset: Int,
+    validate: (Int) -> AlarmValidationResult
+  ) -> Int? {
+    // Try smaller offsets first (more likely to be valid)
+    for testOffset in stride(from: offset, through: 1, by: -1) {
+      if validate(testOffset).isValid {
+        return testOffset
+      }
+    }
+    // If no smaller valid offset found, try larger ones
+    for testOffset in (offset + 1)...60 {
+      if validate(testOffset).isValid {
+        return testOffset
+      }
+    }
+    return nil
   }
 
   // MARK: - Subviews
@@ -150,9 +192,19 @@ struct AlarmConfigurationSheet: View {
   private var alertMessage: some View {
     if let reason = validationResult?.reason {
       switch reason {
-      case .alarmTimeInPast(let minutesUntilArrival, let requestedOffset):
+      case .arrivalInPast:
+        Text(
+          "Kereta sudah tiba atau sedang tiba sekarang. Alarm tidak dapat diatur untuk perjalanan yang sudah selesai. Lanjutkan tanpa alarm?"
+        )
+
+      case .insufficientTimeForAlarm(let minutesUntilArrival, let requestedOffset):
         Text(
           "Kereta tiba dalam \(minutesUntilArrival) menit, alarm \(requestedOffset) menit tidak akan berbunyi. Ubah pengaturan alarm atau lanjutkan tanpa alarm?"
+        )
+
+      case .alarmBeforeDeparture(let journeyDuration, let requestedOffset):
+        Text(
+          "Alarm \(requestedOffset) menit akan berbunyi sebelum kereta berangkat (perjalanan hanya \(journeyDuration) menit). Pilih alarm yang lebih kecil atau lanjutkan tanpa alarm?"
         )
 
       case .journeyTooShort(let journeyDuration, let requestedOffset, let minimumRequired):
@@ -196,6 +248,10 @@ struct AlarmConfigurationSheet: View {
       if offset > 30 {
         return .invalid(
           .journeyTooShort(journeyDuration: 25, requestedOffset: offset, minimumRequired: 40))
+      }
+      if offset > 20 {
+        return .invalid(
+          .alarmBeforeDeparture(journeyDuration: 25, requestedOffset: offset))
       }
       return .valid()
     },

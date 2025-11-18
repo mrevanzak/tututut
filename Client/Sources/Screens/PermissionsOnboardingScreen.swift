@@ -3,10 +3,11 @@ import CoreLocation
 import SwiftUI
 import UserNotifications
 
-/// Onboarding screen for requesting app permissions
+/// Onboarding screen with feature introduction and permission requests
 struct PermissionsOnboardingScreen: View {
   @Environment(\.dismiss) private var dismiss
 
+  @State private var currentPage = 0
   @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
   @State private var alarmStatus: AlarmManager.AuthorizationState = .notDetermined
   @State private var locationStatus: CLAuthorizationStatus = .notDetermined
@@ -15,270 +16,571 @@ struct PermissionsOnboardingScreen: View {
   @State private var isRequestingAlarm = false
   @State private var isRequestingLocation = false
 
+  // Animation states
+  @State private var isAnimatingIcon = false
+  @State private var isAnimatingCard = false
+  @State private var confettiCounter = 0
+  @Namespace private var ctaNamespace
+
   private let permissionService = PermissionRequestService.shared
+  private let totalPages = 5
+  private let ctaId = "onboardingPrimaryCTA"
 
   var body: some View {
-    NavigationStack {
-      ScrollView {
-        VStack(spacing: 32) {
-          // Header
-          headerView
+    ZStack {
+      // Atmospheric background
+      atmosphericBackground
 
-          // Permission sections
-          VStack(spacing: 24) {
-            notificationPermissionSection
-            alarmPermissionSection
-            locationPermissionSection
+      // Content
+      TabView(selection: $currentPage) {
+        welcomePage.tag(0)
+        locationPermissionPage.tag(1)
+        alarmPermissionPage.tag(2)
+        notificationPermissionPage.tag(3)
+        finalPage.tag(4)
+      }
+      .tabViewStyle(.page(indexDisplayMode: .never))
+      .animation(.spring(response: 0.4, dampingFraction: 0.85), value: currentPage)
+      .onChange(of: currentPage) { _, _ in
+        // Trigger animations when page changes
+        isAnimatingIcon = false
+        isAnimatingCard = false
+
+        // Delay to allow page transition to start
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+          withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            isAnimatingIcon = true
+          }
+          withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.05)) {
+            isAnimatingCard = true
           }
 
-        }
-        .padding()
-      }
-      .background(Color.backgroundPrimary)
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button("Lewati") {
-            handleContinue()
+          // Confetti for final page
+          if currentPage == 4 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+              confettiCounter += 1
+            }
           }
         }
       }
-      .task {
-        await refreshPermissionStatuses()
+
+      // Custom page indicators and controls
+      VStack {
+        Spacer()
+
+        controlsOverlay
+          .padding(.horizontal, 24)
+          .padding(.bottom, 48)
       }
     }
-    .safeAreaInset(edge: .bottom) {
-      continueButton
-        .padding(.horizontal, 24)
-        .padding(.top, 12)
-        .padding(.bottom, 12)
-        .background(Color.backgroundPrimary.opacity(0.98))
-        .shadow(color: Color.black.opacity(0.05), radius: 12, y: -2)
+    .ignoresSafeArea()
+    .task {
+      await refreshPermissionStatuses()
+    }
+    .onAppear {
+      // Initial animation for first page
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+          isAnimatingIcon = true
+        }
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.05)) {
+          isAnimatingCard = true
+        }
+      }
     }
   }
 
-  // MARK: - Header
+  // MARK: - Atmospheric Background
 
-  private var headerView: some View {
-    VStack(spacing: 12) {
-      Image(systemName: "lock.shield.fill")
-        .font(.system(size: 48))
-        .foregroundStyle(.highlight)
-        .symbolRenderingMode(.hierarchical)
-
-      Text("Izinkan Akses")
-        .font(.title2.weight(.bold))
-
-      Text(
-        "Kreta membutuhkan beberapa izin untuk memberikan pengalaman terbaik. Kamu bisa mengatur ini nanti di Pengaturan."
+  private var atmosphericBackground: some View {
+    ZStack {
+      // Base gradient
+      LinearGradient(
+        colors: [
+          Color.highlight.opacity(0.15),
+          Color.backgroundPrimary,
+          Color.backgroundPrimary,
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
       )
-      .font(.body)
-      .foregroundStyle(.secondary)
-      .multilineTextAlignment(.center)
-      .padding(.horizontal)
+
+      // Subtle noise texture effect
+      Color.black.opacity(0.02)
     }
-    .padding(.top)
+    .ignoresSafeArea()
   }
 
-  // MARK: - Notification Permission Section
+  // MARK: - Welcome Page
 
-  private var notificationPermissionSection: some View {
-    PermissionSection(
-      icon: "bell.fill",
-      title: "Notifikasi",
-      description:
-        "Dapatkan pemberitahuan tentang perjalanan kereta, kedatangan stasiun, dan pembaruan penting lainnya.",
-      status: notificationStatusText,
-      statusColor: notificationStatusColor,
-      buttonText: notificationButtonText,
-      isRequesting: isRequestingNotification,
-      isEnabled: notificationStatus == .notDetermined,
-      action: {
-        Task {
-          await requestNotificationPermission()
+  private var welcomePage: some View {
+    VStack(spacing: 0) {
+      Spacer()
+
+      Image(.logo)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 100, height: 100)
+        .padding(.bottom, 48)
+
+      VStack(spacing: 16) {
+        Text("Selamat Datang di Kreta")
+          .font(.largeTitle.weight(.bold))
+          .multilineTextAlignment(.center)
+
+        Text("Lacak perjalanan kereta secara real-time\ndan jangan pernah lewatkan stasiun lagi")
+          .font(.body)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          .lineSpacing(4)
+      }
+      .padding(.horizontal, 32)
+
+      Spacer()
+      Spacer()
+    }
+  }
+
+  // MARK: - Location Permission Page
+
+  private var locationPermissionPage: some View {
+    VStack(spacing: 0) {
+      // Page counter
+      HStack {
+        Spacer()
+        Text("1/3")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .padding(.top, 60)
+          .padding(.trailing, 24)
+      }
+      .ignoresSafeArea(.container, edges: .top)
+
+      Spacer()
+
+      Image(.location)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 100, height: 100)
+        .padding(.bottom, 48)
+        .opacity(isAnimatingIcon ? 1.0 : 0.0)
+        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: isAnimatingIcon)
+
+      VStack(spacing: 16) {
+        Text("Akses Lokasi")
+          .font(.largeTitle.weight(.bold))
+          .multilineTextAlignment(.center)
+          .opacity(isAnimatingCard ? 1.0 : 0.0)
+
+        Text("Agar kami bisa memandu berdasarkan\nlokasi kamu.")
+          .font(.body)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          .lineSpacing(4)
+          .opacity(isAnimatingCard ? 1.0 : 0.0)
+      }
+      .padding(.horizontal, 32)
+
+      Spacer()
+      Spacer()
+    }
+  }
+
+  // MARK: - Alarm Permission Page
+
+  private var alarmPermissionPage: some View {
+    VStack(spacing: 0) {
+      // Page counter
+      HStack {
+        Spacer()
+        Text("2/3")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .padding(.top, 60)
+          .padding(.trailing, 24)
+      }
+      .ignoresSafeArea(.container, edges: .top)
+
+      Spacer()
+
+      Image(.alarm)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 100, height: 100)
+        .padding(.bottom, 48)
+        .opacity(isAnimatingIcon ? 1.0 : 0.0)
+        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: isAnimatingIcon)
+
+      VStack(spacing: 16) {
+        Text("Alarm")
+          .font(.largeTitle.weight(.bold))
+          .multilineTextAlignment(.center)
+          .opacity(isAnimatingCard ? 1.0 : 0.0)
+
+        Text("Mengingatkanmu supaya tidak\nterlewat stasiun tujuan.")
+          .font(.body)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          .lineSpacing(4)
+          .opacity(isAnimatingCard ? 1.0 : 0.0)
+      }
+      .padding(.horizontal, 32)
+
+      Spacer()
+      Spacer()
+    }
+  }
+
+  // MARK: - Notification Permission Page
+
+  private var notificationPermissionPage: some View {
+    VStack(spacing: 0) {
+      // Page counter
+      HStack {
+        Spacer()
+        Text("3/3")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .padding(.top, 60)
+          .padding(.trailing, 24)
+      }
+      .ignoresSafeArea(.container, edges: .top)
+
+      Spacer()
+
+      Image(.bell)
+        .resizable()
+        .scaledToFit()
+        .frame(width: 100, height: 100)
+        .padding(.bottom, 48)
+        .opacity(isAnimatingIcon ? 1.0 : 0.0)
+        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: isAnimatingIcon)
+
+      VStack(spacing: 16) {
+        Text("Notifikasi")
+          .font(.largeTitle.weight(.bold))
+          .multilineTextAlignment(.center)
+          .opacity(isAnimatingCard ? 1.0 : 0.0)
+
+        Text("Supaya kamu tetap update soal jadwal\ndan info penting lainnya.")
+          .font(.body)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          .lineSpacing(4)
+          .opacity(isAnimatingCard ? 1.0 : 0.0)
+      }
+      .padding(.horizontal, 32)
+
+      Spacer()
+      Spacer()
+    }
+  }
+
+  // MARK: - Final Page
+
+  private var finalPage: some View {
+    ZStack {
+      celebrationBackground
+
+      VStack(spacing: 0) {
+        Spacer()
+
+        // Animated success icon with confetti effect
+        ZStack {
+          // Confetti particles (more subtle)
+          ForEach(0..<8, id: \.self) { index in
+            Circle()
+              .fill(
+                [Color.highlight, Color.yellow, Color.green, Color.blue][
+                  index % 4
+                ]
+              )
+              .frame(width: 6, height: 6)
+              .offset(
+                x: cos(Double(index) * .pi / 4) * (confettiCounter > 0 ? 100 : 0),
+                y: sin(Double(index) * .pi / 4) * (confettiCounter > 0 ? 100 : 0)
+              )
+              .scaleEffect(confettiCounter > 0 ? 0.3 : 1.0)
+              .opacity(confettiCounter > 0 ? 0.0 : 1.0)
+              .animation(
+                .spring(response: 0.7, dampingFraction: 0.7).delay(Double(index) * 0.04),
+                value: confettiCounter
+              )
+          }
+
+          // Background circles
+          Circle()
+            .fill(Color.highlight.opacity(0.18))
+            .frame(width: 220, height: 220)
+            .blur(radius: 6)
+            .scaleEffect(isAnimatingIcon ? 1.0 : 0.94)
+            .opacity(isAnimatingIcon ? 1.0 : 0.0)
+
+          // Main circle with party gradient
+          Circle()
+            .fill(
+              AngularGradient(
+                colors: [
+                  Color.highlight,
+                  Color.yellow.opacity(0.55),
+                  Color.green.opacity(0.35),
+                  Color.highlight,
+                ],
+                center: .center
+              )
+            )
+            .frame(width: 170, height: 170)
+            .scaleEffect(isAnimatingIcon ? 1.0 : 0.9)
+            .opacity(isAnimatingIcon ? 0.4 : 0.0)
+
+          // Inner circle
+          Circle()
+            .fill(
+              LinearGradient(
+                colors: [
+                  Color.backgroundSecondary.opacity(0.95),
+                  Color.backgroundPrimary.opacity(0.65),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+              )
+            )
+            .frame(width: 145, height: 145)
+            .overlay(
+              Circle()
+                .stroke(Color.white.opacity(0.08), lineWidth: 1.5)
+                .blur(radius: 0.5)
+            )
+            .scaleEffect(isAnimatingIcon ? 1.0 : 0.9)
+            .opacity(isAnimatingIcon ? 1.0 : 0.0)
+
+          // Party popper icon
+          ZStack {
+            Image(systemName: "party.popper.fill")
+              .font(.system(size: 60))
+              .foregroundStyle(.highlight)
+              .symbolRenderingMode(.hierarchical)
+
+            // Sparkles (more subtle)
+            ForEach(0..<3, id: \.self) { index in
+              Image(systemName: "sparkle")
+                .font(.system(size: 16))
+                .foregroundStyle(.yellow)
+                .offset(
+                  x: [25, -25, 0][index],
+                  y: [-25, 0, 25][index]
+                )
+                .scaleEffect(isAnimatingIcon ? 1.0 : 0.0)
+                .opacity(isAnimatingIcon ? 0.8 : 0.0)
+                .animation(
+                  .spring(response: 0.5, dampingFraction: 0.7).delay(0.2 + Double(index) * 0.08),
+                  value: isAnimatingIcon
+                )
+            }
+          }
+          .scaleEffect(isAnimatingIcon ? 1.0 : 0.9)
+          .opacity(isAnimatingIcon ? 1.0 : 0.0)
+        }
+        .padding(.bottom, 48)
+
+        VStack(spacing: 16) {
+          Text("Selamat Menikmati!")
+            .font(.largeTitle.weight(.bold))
+            .multilineTextAlignment(.center)
+            .opacity(isAnimatingCard ? 1.0 : 0.0)
+
+          Text(
+            "Semua sudah siap!\nSekarang kamu bisa lacak kereta dengan mudah"
+          )
+          .font(.body)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(.center)
+          .lineSpacing(4)
+          .opacity(isAnimatingCard ? 1.0 : 0.0)
+        }
+        .padding(.horizontal, 32)
+
+        Spacer()
+        Spacer()
+      }
+    }
+  }
+
+  // MARK: - Controls Overlay
+
+  private var controlsOverlay: some View {
+    VStack(spacing: 20) {
+      // Page indicators (hide on welcome and final page)
+      if shouldShowIndicators {
+        HStack(spacing: 8) {
+          ForEach(1..<totalPages - 1, id: \.self) { index in
+            Capsule()
+              .fill(currentPage == index ? Color.highlight : Color.highlight.opacity(0.3))
+              .frame(width: currentPage == index ? 28 : 8, height: 8)
+              .animation(.spring(response: 0.35, dampingFraction: 0.75), value: currentPage)
+          }
+        }
+        .padding(.bottom, 4)
+      }
+
+      // Animated action button with skip option
+      VStack(spacing: 12) {
+        ZStack {
+          if currentPage < totalPages - 1 {
+            continueButton
+              .matchedGeometryEffect(id: ctaId, in: ctaNamespace)
+              .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .bottom)))
+          }
+
+          if currentPage == totalPages - 1 {
+            completionButton
+              .background(celebrationCTAGlow)
+              .matchedGeometryEffect(id: ctaId, in: ctaNamespace)
+              .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+          }
+        }
+        .animation(.spring(response: 0.45, dampingFraction: 0.82), value: currentPage)
+
+        if shouldShowSkipButton {
+          Button {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred()
+
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+              currentPage = totalPages - 1
+            }
+          } label: {
+            Text("Ingatkan Nanti")
+              .font(.subheadline)
+              .foregroundStyle(.secondary)
+          }
+          .transition(.opacity)
         }
       }
-    )
-  }
-
-  private var notificationStatusText: String {
-    switch notificationStatus {
-    case .notDetermined:
-      return "Belum diizinkan"
-    case .authorized, .provisional, .ephemeral:
-      return "Diizinkan"
-    case .denied:
-      return "Ditolak"
-    @unknown default:
-      return "Tidak diketahui"
     }
   }
 
-  private var notificationStatusColor: Color {
-    switch notificationStatus {
-    case .notDetermined:
-      return .orange
-    case .authorized, .provisional, .ephemeral:
-      return .green
-    case .denied:
-      return .red
-    @unknown default:
-      return .gray
+  // MARK: - Celebration Styling
+
+  private var celebrationBackground: some View {
+    ZStack {
+      Color.backgroundPrimary
+        .opacity(0.98)
+
+      RadialGradient(
+        colors: [
+          Color.highlight.opacity(0.55),
+          Color.highlight.opacity(0.05),
+          Color.backgroundPrimary.opacity(0.02),
+        ],
+        center: .center,
+        startRadius: 40,
+        endRadius: 480
+      )
+      .blur(radius: 14)
+      .blendMode(.screen)
+
+      AngularGradient(
+        colors: [
+          Color.highlight.opacity(0.45),
+          Color.green.opacity(0.2),
+          Color.blue.opacity(0.22),
+          Color.highlight.opacity(0.45),
+        ],
+        center: .center
+      )
+      .blur(radius: 160)
+      .opacity(0.7)
+
+      LinearGradient(
+        colors: [
+          Color.black.opacity(0.2),
+          Color.black.opacity(0.0),
+          Color.black.opacity(0.3),
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+      )
     }
+    .ignoresSafeArea()
   }
 
-  private var notificationButtonText: String {
-    switch notificationStatus {
-    case .notDetermined:
-      return "Izinkan Notifikasi"
-    case .authorized, .provisional, .ephemeral:
-      return "Sudah Diizinkan"
-    case .denied:
-      return "Buka Pengaturan"
-    @unknown default:
-      return "Izinkan Notifikasi"
-    }
+  private var celebrationCTAGlow: some View {
+    Capsule()
+      .fill(
+        RadialGradient(
+          colors: [
+            Color.highlight.opacity(0.85),
+            Color.highlight.opacity(0.0),
+          ],
+          center: .center,
+          startRadius: 12,
+          endRadius: 160
+        )
+      )
+      .padding(.horizontal, -14)
+      .padding(.vertical, -6)
+      .blur(radius: 18)
+      .opacity(0.8)
   }
-
-  // MARK: - Alarm Permission Section
-
-  private var alarmPermissionSection: some View {
-    PermissionSection(
-      icon: "alarm.fill",
-      title: "Alarm",
-      description:
-        "Dapatkan alarm penting sebelum tiba di stasiun tujuan agar kamu tidak melewatkan pemberhentian.",
-      status: alarmStatusText,
-      statusColor: alarmStatusColor,
-      buttonText: alarmButtonText,
-      isRequesting: isRequestingAlarm,
-      isEnabled: alarmStatus == .notDetermined,
-      action: {
-        Task {
-          await requestAlarmPermission()
-        }
-      }
-    )
-  }
-
-  private var alarmStatusText: String {
-    switch alarmStatus {
-    case .notDetermined:
-      return "Belum diizinkan"
-    case .authorized:
-      return "Diizinkan"
-    case .denied:
-      return "Ditolak"
-    @unknown default:
-      return "Tidak diketahui"
-    }
-  }
-
-  private var alarmStatusColor: Color {
-    switch alarmStatus {
-    case .notDetermined:
-      return .orange
-    case .authorized:
-      return .green
-    case .denied:
-      return .red
-    @unknown default:
-      return .gray
-    }
-  }
-
-  private var alarmButtonText: String {
-    switch alarmStatus {
-    case .notDetermined:
-      return "Izinkan Alarm"
-    case .authorized:
-      return "Sudah Diizinkan"
-    case .denied:
-      return "Buka Pengaturan"
-    @unknown default:
-      return "Izinkan Alarm"
-    }
-  }
-
-  // MARK: - Location Permission Section
-
-  private var locationPermissionSection: some View {
-    PermissionSection(
-      icon: "location.fill",
-      title: "Lokasi",
-      description:
-        "Deteksi ketika kamu mendekati stasiun untuk memberikan pemberitahuan yang tepat waktu.",
-      status: locationStatusText,
-      statusColor: locationStatusColor,
-      buttonText: locationButtonText,
-      isRequesting: isRequestingLocation,
-      isEnabled: locationStatus == .notDetermined,
-      action: {
-        Task {
-          await requestLocationPermission()
-        }
-      }
-    )
-  }
-
-  private var locationStatusText: String {
-    switch locationStatus {
-    case .notDetermined:
-      return "Belum diizinkan"
-    case .authorizedWhenInUse, .authorizedAlways:
-      return "Diizinkan"
-    case .denied, .restricted:
-      return "Ditolak"
-    @unknown default:
-      return "Tidak diketahui"
-    }
-  }
-
-  private var locationStatusColor: Color {
-    switch locationStatus {
-    case .notDetermined:
-      return .orange
-    case .authorizedWhenInUse, .authorizedAlways:
-      return .green
-    case .denied, .restricted:
-      return .red
-    @unknown default:
-      return .gray
-    }
-  }
-
-  private var locationButtonText: String {
-    switch locationStatus {
-    case .notDetermined:
-      return "Izinkan Lokasi"
-    case .authorizedWhenInUse, .authorizedAlways:
-      return "Sudah Diizinkan"
-    case .denied, .restricted:
-      return "Buka Pengaturan"
-    @unknown default:
-      return "Izinkan Lokasi"
-    }
-  }
-
-  // MARK: - Continue Button
 
   private var continueButton: some View {
-    let isEnabled = hasAllPermissions
+    Group {
+      if currentPage >= 1 && currentPage <= 3 {
+        AnimatedButton(
+          title: "Lanjutkan",
+          icon: "arrow.right",
+          color: .highlight,
+          isHighlighted: true,
+          isLoading: isRequestingPermission
+        ) {
+          Task {
+            await handlePermissionPageContinue()
+          }
+        }
+      } else {
+        AnimatedButton(
+          title: "Lanjutkan",
+          icon: "arrow.right",
+          color: .highlight,
+          isHighlighted: true
+        ) {
+          let impact = UIImpactFeedbackGenerator(style: .medium)
+          impact.impactOccurred()
 
-    return Button {
-      handleContinue()
-    } label: {
-      Text("Lanjutkan")
-        .font(.headline)
-        .foregroundStyle(isEnabled ? .lessDark : .lessDark.opacity(0.6))
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(
-          Capsule()
-            .fill(.highlight.opacity(isEnabled ? 1.0 : 0.35))
-        )
+          withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            currentPage += 1
+          }
+        }
+      }
     }
-    .disabled(!isEnabled)
+  }
+
+  private var completionButton: some View {
+    AnimatedButton(
+      title: "Mulai Sekarang",
+      icon: "checkmark.circle.fill",
+      color: .highlight,
+      isHighlighted: true
+    ) {
+      let impact = UIImpactFeedbackGenerator(style: .heavy)
+      impact.impactOccurred()
+
+      handleContinue()
+    }
+  }
+
+  // Computed property to check if currently requesting any permission
+  private var isRequestingPermission: Bool {
+    isRequestingLocation || isRequestingAlarm || isRequestingNotification
+  }
+
+  private var shouldShowIndicators: Bool {
+    currentPage > 0 && currentPage < totalPages - 1
+  }
+
+  private var shouldShowSkipButton: Bool {
+    currentPage >= 1 && currentPage <= 3
   }
 
   // MARK: - Actions
@@ -289,27 +591,29 @@ struct PermissionsOnboardingScreen: View {
     locationStatus = permissionService.getLocationStatus()
   }
 
-  private func requestNotificationPermission() async {
-    isRequestingNotification = true
-    defer { isRequestingNotification = false }
+  private func handlePermissionPageContinue() async {
+    // Haptic feedback
+    let impact = UIImpactFeedbackGenerator(style: .medium)
+    impact.impactOccurred()
 
-    let granted = await permissionService.requestNotificationPermission()
-    await refreshPermissionStatuses()
-
-    if !granted && notificationStatus == .denied {
-      // Could open settings here if needed
+    // Request permission based on current page
+    switch currentPage {
+    case 1:
+      // Location permission page
+      await requestLocationPermission()
+    case 2:
+      // Alarm permission page
+      await requestAlarmPermission()
+    case 3:
+      // Notification permission page
+      await requestNotificationPermission()
+    default:
+      break
     }
-  }
 
-  private func requestAlarmPermission() async {
-    isRequestingAlarm = true
-    defer { isRequestingAlarm = false }
-
-    let granted = await permissionService.requestAlarmPermission()
-    await refreshPermissionStatuses()
-
-    if !granted && alarmStatus == .denied {
-      // Could open settings here if needed
+    // Move to next page after permission request
+    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+      currentPage += 1
     }
   }
 
@@ -317,121 +621,106 @@ struct PermissionsOnboardingScreen: View {
     isRequestingLocation = true
     defer { isRequestingLocation = false }
 
-    let granted = await permissionService.requestLocationPermission()
+    _ = await permissionService.requestLocationPermission()
     await refreshPermissionStatuses()
+  }
 
-    if !granted && (locationStatus == .denied || locationStatus == .restricted) {
-      // Could open settings here if needed
-    }
+  private func requestAlarmPermission() async {
+    isRequestingAlarm = true
+    defer { isRequestingAlarm = false }
+
+    _ = await permissionService.requestAlarmPermission()
+    await refreshPermissionStatuses()
+  }
+
+  private func requestNotificationPermission() async {
+    isRequestingNotification = true
+    defer { isRequestingNotification = false }
+
+    _ = await permissionService.requestNotificationPermission()
+    await refreshPermissionStatuses()
   }
 
   private func handleContinue() {
     OnboardingState.markOnboardingComplete()
     dismiss()
   }
-
-  // MARK: - Permission Helpers
-
-  private var hasAllPermissions: Bool {
-    isNotificationGranted && isAlarmGranted && isLocationGranted
-  }
-
-  private var isNotificationGranted: Bool {
-    switch notificationStatus {
-    case .authorized, .provisional, .ephemeral:
-      return true
-    default:
-      return false
-    }
-  }
-
-  private var isAlarmGranted: Bool {
-    alarmStatus == .authorized
-  }
-
-  private var isLocationGranted: Bool {
-    switch locationStatus {
-    case .authorizedAlways, .authorizedWhenInUse:
-      return true
-    default:
-      return false
-    }
-  }
 }
 
-// MARK: - Permission Section Component
+// MARK: - Animated Button Component
 
-private struct PermissionSection: View {
-  let icon: String
+private struct AnimatedButton: View {
   let title: String
-  let description: String
-  let status: String
-  let statusColor: Color
-  let buttonText: String
-  let isRequesting: Bool
-  let isEnabled: Bool
+  let icon: String
+  let color: Color
+  let isHighlighted: Bool
+  var isLoading: Bool = false
   let action: () -> Void
 
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack(spacing: 12) {
-        Image(systemName: icon)
-          .font(.title2)
-          .foregroundStyle(.highlight)
-          .frame(width: 32)
+  @State private var isPressed = false
 
-        VStack(alignment: .leading, spacing: 4) {
+  var body: some View {
+    Button {
+      guard !isLoading else { return }
+
+      // Scale animation on press
+      withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        isPressed = true
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+          isPressed = false
+        }
+      }
+      action()
+    } label: {
+      HStack(spacing: 10) {
+        if isLoading {
+          ProgressView()
+            .progressViewStyle(CircularProgressViewStyle(tint: .lessDark))
+            .scaleEffect(0.9)
+        } else {
           Text(title)
             .font(.headline)
 
-          Text(description)
-            .font(.caption)
-            .foregroundStyle(.secondary)
+          Image(systemName: icon)
+            .font(.headline.weight(.semibold))
         }
-
-        Spacer()
       }
+      .foregroundStyle(.lessDark)
+      .frame(maxWidth: .infinity)
+      .padding(.vertical, 18)
+      .background(
+        ZStack {
+          // Base capsule
+          Capsule()
+            .fill(color.opacity(isHighlighted ? 1.0 : 0.6))
 
-      HStack {
-        HStack(spacing: 6) {
-          Circle()
-            .fill(statusColor)
-            .frame(width: 8, height: 8)
-
-          Text(status)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-
-        Spacer()
-
-        Button {
-          action()
-        } label: {
-          if isRequesting {
-            ProgressView()
-              .progressViewStyle(CircularProgressViewStyle(tint: .white))
-              .frame(width: 20, height: 20)
-          } else {
-            Text(buttonText)
-              .font(.subheadline.weight(.medium))
+          // Shine effect
+          if isHighlighted {
+            Capsule()
+              .fill(
+                LinearGradient(
+                  colors: [
+                    Color.white.opacity(0.25),
+                    Color.white.opacity(0.0),
+                    Color.white.opacity(0.08),
+                  ],
+                  startPoint: .topLeading,
+                  endPoint: .bottomTrailing
+                )
+              )
           }
         }
-        .buttonStyle(.borderedProminent)
-        .tint(.highlight)
-        .disabled(!isEnabled && !isRequesting)
-      }
+        .shadow(
+          color: color.opacity(isHighlighted ? 0.3 : 0.15), radius: isPressed ? 6 : 10,
+          y: isPressed ? 2 : 3)
+      )
+      .scaleEffect(isPressed ? 0.98 : 1.0)
+      .opacity(isLoading ? 0.8 : 1.0)
     }
-    .padding()
-    .background(
-      RoundedRectangle(cornerRadius: 16, style: .continuous)
-        .fill(Color(.systemBackground))
-        .shadow(color: Color(.systemGray).opacity(0.1), radius: 8, x: 0, y: 4)
-    )
-    .overlay(
-      RoundedRectangle(cornerRadius: 16, style: .continuous)
-        .stroke(Color(.separator), lineWidth: 1)
-    )
+    .disabled(isLoading)
+    .buttonStyle(.plain)
   }
 }
 

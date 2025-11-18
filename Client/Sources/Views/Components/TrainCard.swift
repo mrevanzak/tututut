@@ -50,15 +50,25 @@ struct TrainCard: View {
       
       // Train icon - aligned with station codes
       VStack(spacing: 12) {
+        
         Image(colorScheme.keretaName)
           .resizable()
-          .scaledToFit()
-          .frame(width: 120, height: 20)
+          .aspectRatio(contentMode: .fill)
+          .frame(width: 115, height: 20)
           .frame(maxWidth: .infinity)
         
-        durationStatusView
+        ZStack(alignment: .top) {
+          Image(colorScheme.keretaBackground)
+            .resizable()
+            .scaledToFill()
+            .frame(maxWidth: .infinity, maxHeight: 24)
+            .offset(y: -4)
+          
+          durationStatusView
+          
+        }
       }
-      .frame(maxWidth: .infinity)
+      .frame(minWidth: 155)
       
       // Arrival station
       VStack(spacing: 4) {
@@ -77,7 +87,7 @@ struct TrainCard: View {
       }
       .frame(maxWidth: .infinity)
     }
-    .padding(.horizontal)
+    .padding(.horizontal, 8)
     .padding(.vertical, 16)
   }
   
@@ -88,9 +98,9 @@ struct TrainCard: View {
       // Train image at top of journey details
       Image(colorScheme.keretaName)
         .resizable()
-        .aspectRatio(contentMode: .fit)
-        .frame(width: 120, height: 20)
-        .padding(.top, 8)
+        .aspectRatio(contentMode: .fill)
+        .frame(width: 115, height: 20)
+        .padding(.top, 4)
       
       // Journey details without train image
       HStack(spacing: 10) {
@@ -111,15 +121,22 @@ struct TrainCard: View {
         }
         .frame(maxWidth: .infinity)
         
-        Spacer()
         
         // Duration (separated text)
         VStack(spacing: 4) {
-          durationStatusView
+          ZStack(alignment: .top) {
+            Image(colorScheme.keretaBackground)
+              .resizable()
+              .scaledToFill()
+              .frame(maxWidth: .infinity, maxHeight: 24)
+              .offset(y: lowerBackgroundOffset)
+            
+            durationStatusView
+              
+          }
         }
-        .frame(maxWidth: .infinity)
+        .frame(minWidth: 155)
         
-        Spacer()
         
         // Arrival station
         VStack(spacing: 4) {
@@ -176,21 +193,21 @@ struct TrainCard: View {
           .foregroundStyle(.blue)
           .multilineTextAlignment(.center)
       }
-
+      
     case .belumBerangkat:
       Text("Kereta belum berangkat")
         .font(.subheadline)
         .fontWeight(.bold)
         .foregroundStyle(.blue)
         .multilineTextAlignment(.center)
-
+      
     case .sudahTiba:
       Text("Sudah tiba")
         .font(.subheadline)
         .fontWeight(.bold)
         .foregroundStyle(.blue)
         .multilineTextAlignment(.center)
-
+      
     case .tidakTersedia:
       Text("Waktu tidak tersedia")
         .font(.subheadline)
@@ -199,7 +216,7 @@ struct TrainCard: View {
         .multilineTextAlignment(.center)
     }
   }
-
+  
   
   // MARK: - Computed Properties
   
@@ -230,7 +247,7 @@ struct TrainCard: View {
   }
   
   // MARK: - Helper Functions
-
+  
   // Helper function to format duration time only (without "Tiba dalam" prefix)
   private func formattedDurationTime() -> String {
     guard let departure = departureTime, let arrival = arrivalTime else {
@@ -290,6 +307,20 @@ struct TrainCard: View {
     
     return .sedangBerjalan
   }
+  
+  private var lowerBackgroundOffset: CGFloat {
+      switch trainStatus() {
+      case .sudahTiba:
+          return -16
+      case .belumBerangkat:
+          return -9
+      case .sedangBerjalan:
+          return -7
+      case .tidakTersedia:
+          return -7
+      }
+  }
+
   
   
   enum TrainStatus {

@@ -94,7 +94,7 @@ struct HomeScreen: View {
             .task {
               // Show permissions onboarding on first launch
               if !OnboardingState.hasCompletedOnboarding() {
-                router.navigate(to: .sheet(.permissionsOnboarding))
+                router.navigate(to: .fullScreen(.permissionsOnboarding))
               }
             }
           }

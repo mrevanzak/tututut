@@ -131,7 +131,7 @@ struct JourneyProgressView: View {
               in: .rect(cornerRadius: 20)
             )
           }
-          .padding(.horizontal, 20)
+          .padding(.horizontal, 16)
           .padding(.top, 12)
           .padding(.bottom, 20)
           .background(

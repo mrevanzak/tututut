@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		4E428AD12EAEF22D008DC212 /* MijickCalendarView in Frameworks */ = {isa = PBXBuildFile; productRef = 4E428AD02EAEF22D008DC212 /* MijickCalendarView */; };
 		4EAA41862EC1792700C01006 /* Portal in Frameworks */ = {isa = PBXBuildFile; productRef = 4EAA41852EC1792700C01006 /* Portal */; };
 		4EAA41882EC1792700C01006 /* PortalFlowingHeader in Frameworks */ = {isa = PBXBuildFile; productRef = 4EAA41872EC1792700C01006 /* PortalFlowingHeader */; };
 		4EAA418C2EC1792700C01006 /* PortalView in Frameworks */ = {isa = PBXBuildFile; productRef = 4EAA418B2EC1792700C01006 /* PortalView */; };
@@ -97,7 +96,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				C5CC97402EB3C0BE00E46229 /* Disk in Frameworks */,
-				4E428AD12EAEF22D008DC212 /* MijickCalendarView in Frameworks */,
 				C5892C982EA8CB370043E6B9 /* DebugSwift in Frameworks */,
 				C57893C42E93769300375616 /* ConvexMobile in Frameworks */,
 				4EAA41882EC1792700C01006 /* PortalFlowingHeader in Frameworks */,
@@ -191,7 +189,6 @@
 				C57893C32E93769300375616 /* ConvexMobile */,
 				C5892C972EA8CB370043E6B9 /* DebugSwift */,
 				C51929E22EAB3AC30036AE74 /* MijickPopups */,
-				4E428AD02EAEF22D008DC212 /* MijickCalendarView */,
 				C5CC973F2EB3C0BE00E46229 /* Disk */,
 				C5CC99BC2EB446F600E46229 /* PostHog */,
 				C58000002EB9CAD80032530C /* Sentry */,
@@ -283,7 +280,6 @@
 				C57893C22E93769300375616 /* XCRemoteSwiftPackageReference "convex-swift" */,
 				C5892C962EA8CB370043E6B9 /* XCRemoteSwiftPackageReference "DebugSwift" */,
 				C51929E12EAB3AC30036AE74 /* XCRemoteSwiftPackageReference "Popups" */,
-				4E428ACF2EAEF22D008DC212 /* XCRemoteSwiftPackageReference "CalendarView" */,
 				C5CC973E2EB3C0BE00E46229 /* XCRemoteSwiftPackageReference "Disk" */,
 				C5CC99BB2EB446F600E46229 /* XCRemoteSwiftPackageReference "posthog-ios" */,
 				C580FFFF2EB9CAD80032530C /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
@@ -783,14 +779,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		4E428ACF2EAEF22D008DC212 /* XCRemoteSwiftPackageReference "CalendarView" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Mijick/CalendarView.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.1;
-			};
-		};
 		4EAA41842EC1792700C01006 /* XCRemoteSwiftPackageReference "Portal" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Aeastr/Portal.git";
@@ -850,11 +838,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		4E428AD02EAEF22D008DC212 /* MijickCalendarView */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 4E428ACF2EAEF22D008DC212 /* XCRemoteSwiftPackageReference "CalendarView" */;
-			productName = MijickCalendarView;
-		};
 		4EAA41852EC1792700C01006 /* Portal */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4EAA41842EC1792700C01006 /* XCRemoteSwiftPackageReference "Portal" */;
