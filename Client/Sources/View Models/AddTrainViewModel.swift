@@ -467,9 +467,9 @@ extension AddTrainView {
       case .arrival:
         return "Pilih Stasiun Tujuan"
       case .date:
-        return "Keberangkatan Tujuan"
+        return "Pilih Hari Keberangkatan"
       case .results:
-        return "Keberangkatan Tujuan"
+        return "Pilih Kereta"
       }
     }
 
