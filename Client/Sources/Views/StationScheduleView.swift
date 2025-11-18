@@ -48,15 +48,15 @@ struct StationScheduleView: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(\.showToast) private var showToast
   @Environment(Router.self) private var router
-
+  
   @State private var trains: [TrainStopService.TrainAtStation] = []
   @State private var groupedTrains: [GroupedTrainSchedule] = []
   @State private var isLoading: Bool = false
   @State private var expandedGroups: Set<String> = []
-
+  
   private let trainStopService = TrainStopService()
   private let journeyService = JourneyService()
-
+  
   var body: some View {
     VStack(spacing: 0) {
       headerView
@@ -72,9 +72,9 @@ struct StationScheduleView: View {
       await loadTrainSchedule()
     }
   }
-
+  
   // MARK: - Header View
-
+  
   private var headerView: some View {
     HStack {
       VStack(alignment: .leading, spacing: 4) {
@@ -82,13 +82,13 @@ struct StationScheduleView: View {
           Text(station.name)
             .font(.title2.bold())
             .foregroundStyle(.primary)
-
+          
           HStack(spacing: 8) {
             Text(station.code)
               .font(.subheadline)
               .fontWeight(.medium)
               .foregroundStyle(.secondary)
-
+            
             if let city = station.city {
               Text("•")
                 .foregroundStyle(.secondary)
@@ -103,9 +103,9 @@ struct StationScheduleView: View {
             .foregroundStyle(.primary)
         }
       }
-
+      
       Spacer()
-
+      
       Button {
         dismiss()
       } label: {
@@ -117,9 +117,9 @@ struct StationScheduleView: View {
     .padding()
     .background(.backgroundPrimary)
   }
-
+  
   // MARK: - Content View
-
+  
   @ViewBuilder
   private func contentView(for station: Station) -> some View {
     if isLoading {
@@ -130,7 +130,7 @@ struct StationScheduleView: View {
       trainGroupListView
     }
   }
-
+  
   private var loadingView: some View {
     VStack {
       Spacer()
@@ -143,7 +143,7 @@ struct StationScheduleView: View {
       Spacer()
     }
   }
-
+  
   private var noTrainsView: some View {
     VStack(spacing: 16) {
       Spacer()
@@ -165,7 +165,7 @@ struct StationScheduleView: View {
       Spacer()
     }
   }
-
+  
   private var trainGroupListView: some View {
     ScrollView {
       LazyVStack(spacing: 12) {
@@ -191,7 +191,7 @@ struct StationScheduleView: View {
       .padding()
     }
   }
-
+  
   private var emptyStateView: some View {
     ContentUnavailableView(
       "Tidak Ada Stasiun Dipilih",
@@ -199,16 +199,16 @@ struct StationScheduleView: View {
       description: Text("Silakan pilih stasiun terlebih dahulu")
     )
   }
-
+  
   // MARK: - Actions
-
+  
   private func loadTrainSchedule() async {
     guard let station = mapStore.selectedStationForSchedule else { return }
     guard let stationId = station.id else { return }
-
+    
     isLoading = true
     defer { isLoading = false }
-
+    
     do {
       trains = try await trainStopService.getTrainsAtStation(stationId: stationId)
       updateGroupedTrains()
@@ -217,7 +217,7 @@ struct StationScheduleView: View {
       print("Failed to load train schedule: \(error)")
     }
   }
-
+  
   private func updateGroupedTrains() {
     // Group by train code + origin + destination (the complete route)
     let grouped = Dictionary(grouping: trains) { train in
@@ -246,7 +246,7 @@ struct StationScheduleView: View {
       return "\(a.origin)-\(a.destination)" < "\(b.origin)-\(b.destination)"
     }
   }
-
+  
   private func parseTime(_ timeString: String) -> Date? {
     let components = timeString.split(separator: ":")
     guard components.count >= 2,
@@ -257,7 +257,7 @@ struct StationScheduleView: View {
     let calendar = Calendar.current
     return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: Date())
   }
-
+  
   private func handleTrainSelection(_ train: TrainStopService.TrainAtStation) {
     Task {
       do {
@@ -305,11 +305,9 @@ struct StationScheduleView: View {
           selectedDate: selectedDate
         )
         
-        // Find the specific train by matching departure time
+        // Find the specific train by matching trainId
         guard let matchingTrain = availableTrains.first(where: { item in
-          guard let trainDepartureTime = train.departureTime else { return false }
-          let itemTimeString = formatTimeFromDate(item.segmentDeparture)
-          return trainDepartureTime.hasPrefix(itemTimeString)
+          item.trainId == train.trainId
         }) else {
           showToast("Data kereta tidak ditemukan")
           return
@@ -609,21 +607,28 @@ private struct ScheduleTimeRow: View {
       isPast = false
       return
     }
+    print("debug time: \(departureTime)")
     
     let components = departureTime.split(separator: ":")
-    guard components.count >= 2,
+    guard components.count == 3,
           let hour = Int(components[0]),
-          let minute = Int(components[1])
-    else {
+          let minute = Int(components[1]),
+          let second = Int(components[2]) else {
       isPast = false
       return
     }
     
     let calendar = Calendar.current
-    if let scheduleTime = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) {
+    if let scheduleTime = calendar.date(
+      bySettingHour: hour,
+      minute: minute,
+      second: second,
+      of: Date()
+    ) {
       isPast = scheduleTime < Date()
     }
   }
+  
 }
 
 // MARK: - Train Schedule Row (Legacy - kept for reference)
@@ -632,7 +637,7 @@ private struct TrainScheduleRow: View {
   let train: TrainStopService.TrainAtStation
   let isSelected: Bool
   let onTap: () -> Void
-
+  
   var body: some View {
     Button(action: onTap) {
       VStack(spacing: 0) {
@@ -647,20 +652,20 @@ private struct TrainScheduleRow: View {
               .font(.title3)
               .foregroundStyle(.blue)
           }
-
+          
           VStack(alignment: .leading, spacing: 4) {
             // Train name and code
             HStack(alignment: .firstTextBaseline, spacing: 8) {
               Text(train.trainName)
                 .font(.headline)
                 .foregroundStyle(.primary)
-
+              
               Text(train.trainCode)
                 .font(.subheadline)
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
             }
-
+            
             // Route
             HStack(spacing: 4) {
               Text(train.origin)
@@ -677,7 +682,7 @@ private struct TrainScheduleRow: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
-
+            
             // Time information
             HStack(spacing: 16) {
               if let arrivalTime = train.arrivalTime {
@@ -690,9 +695,9 @@ private struct TrainScheduleRow: View {
             }
             .padding(.top, 4)
           }
-
+          
           Spacer()
-
+          
           // Chevron indicator
           Image(systemName: "chevron.right")
             .font(.subheadline.weight(.semibold))
@@ -712,7 +717,7 @@ private struct TrainScheduleRow: View {
 private struct TimeLabel: View {
   let label: String
   let time: String
-
+  
   var body: some View {
     HStack(spacing: 4) {
       Text(label)
@@ -728,7 +733,7 @@ private struct TimeLabel: View {
     .background(Color.primary.opacity(0.05))
     .cornerRadius(6)
   }
-
+  
   private var formattedTime: String {
     // Time is in format "HH:MM:SS", we just want "HH:MM"
     let components = time.split(separator: ":")
@@ -750,7 +755,7 @@ private struct TimeLabel: View {
     position: Position(latitude: -6.1754, longitude: 106.8272),
     city: "Jakarta"
   )
-
+  
   return StationScheduleView()
     .environment(store)
 }
