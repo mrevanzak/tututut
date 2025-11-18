@@ -7,6 +7,7 @@ struct TrainMapView: View {
 
   @State var isFollowing: Bool = true
   @State var focusTrigger: Bool = false
+  @State private var userHasPanned: Bool = false
   @State private var cameraPosition: MapCameraPosition = .automatic
   @State private var visibleRegionSpan: MKCoordinateSpan?
   @State private var trainStops: [TrainStopService.TrainStop] = []
@@ -62,13 +63,15 @@ struct TrainMapView: View {
         visibleRegionSpan = region.span
       }
       // break follow as soon as user interacts with the map
-      .gesture(
+      .simultaneousGesture(
         DragGesture(minimumDistance: 0).onChanged { _ in
-          if isFollowing { isFollowing = false }
+            print("Check Trigger gesture")
+          userHasPanned = true
+          isFollowing = false
         }
       )
 
-      MapControl(isFollowing: $isFollowing, focusTrigger: $focusTrigger)
+      MapControl(isFollowing: $isFollowing, focusTrigger: $focusTrigger, userHasPanned: $userHasPanned)
     }
     .mapControlVisibility(.hidden)
     .mapStyle(mapStyleForCurrentSelection)
@@ -87,11 +90,13 @@ struct TrainMapView: View {
       }
     }
 
-    // Load train stops when selected train changes
     .onChange(of: mapStore.selectedTrain) { _, newTrain in
       if let train = newTrain {
         Task {
           await loadTrainStops(for: train)
+        }
+        if isFollowing {
+          updateCameraPosition(with: [train])
         }
       } else {
         trainStops = []
@@ -109,8 +114,11 @@ struct TrainMapView: View {
     .onChange(of: focusTrigger) { _, newValue in
       if newValue {
         isFollowing = true
+        userHasPanned = false
         if let position = mapStore.liveTrainPosition {
           updateCameraPosition(with: [position])
+        } else if let train = mapStore.selectedTrain {
+          updateCameraPosition(with: [train])
         }
       }
     }
@@ -133,6 +141,15 @@ struct TrainMapView: View {
       if let train = mapStore.selectedTrain {
         Task {
           await loadTrainStops(for: train)
+        }
+      }
+
+      // Initial focus: if following, prefer live position; else fallback to selected train
+      if isFollowing {
+        if let position = mapStore.liveTrainPosition {
+          updateCameraPosition(with: [position])
+        } else if let train = mapStore.selectedTrain {
+          updateCameraPosition(with: [train])
         }
       }
     }

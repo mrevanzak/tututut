@@ -60,15 +60,15 @@ struct ShareScreen: View {
                     }
 
                     HStack {
-                        Button {
-                            Task { await captureStaticSnapshot(scale: displayScale) }
-                        } label: {
-                            Text("Capture")
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.gray.opacity(0.15))
-                                .cornerRadius(10)
-                        }
+//                        Button {
+//                            Task { await captureStaticSnapshot(scale: displayScale) }
+//                        } label: {
+//                            Text("Capture")
+//                                .frame(maxWidth: .infinity)
+//                                .padding()
+//                                .background(Color.gray.opacity(0.15))
+//                                .cornerRadius(10)
+//                        }
 
                         if UIApplication.shared.canOpenURL(instagramURL) {
                             Button(action: { showShareConfirmation = true }) {
