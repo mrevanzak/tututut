@@ -105,6 +105,34 @@ final class TrainStopService {
     let totalStops: Int
   }
 
+  struct TrainAtStation: Codable, Sendable, Identifiable {
+    let trainId: String
+    let trainCode: String
+    let trainName: String
+    let stationId: String
+    let stationCode: String
+    let stationName: String
+    let city: String
+    let arrivalTime: String?
+    let departureTime: String?
+    let stopSequence: Int
+    let origin: String
+    let destination: String
+    let isOrigin: Bool
+    let isDestination: Bool
+
+    var id: String { trainId }
+
+    var displayTime: String {
+      if let departure = departureTime {
+        return departure
+      } else if let arrival = arrivalTime {
+        return arrival
+      }
+      return "--:--:--"
+    }
+  }
+
   // MARK: - Public Methods
 
   /// Get complete train schedule with all stops
@@ -155,6 +183,15 @@ final class TrainStopService {
       to: "trainStops:listAllTrains",
       with: [:],
       yielding: [TrainSummary].self
+    )
+  }
+
+  /// Get all trains that stop at a specific station
+  func getTrainsAtStation(stationId: String) async throws -> [TrainAtStation] {
+    return try await convexClient.query(
+      to: "trainStops:getTrainsAtStation",
+      with: ["stationId": stationId],
+      yielding: [TrainAtStation].self
     )
   }
 }

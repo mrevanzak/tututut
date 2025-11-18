@@ -21,16 +21,21 @@ export const getTrainSchedule = query({
 
     // Sort by stop sequence
     const sortedStops = stops.sort((a, b) => a.stopSequence - b.stopSequence);
+    
+    const firstStop = sortedStops[0];
+    if (!firstStop) {
+      return null;
+    }
 
     return {
-      trainCode: sortedStops[0].trainCode,
-      trainName: sortedStops[0].trainName,
-      trainId: sortedStops[0].trainId,
+      trainCode: firstStop.trainCode,
+      trainName: firstStop.trainName,
+      trainId: firstStop.trainId,
       route: {
-        origin: sortedStops[0].routeOriginName,
-        destination: sortedStops[0].routeDestinationName,
+        origin: firstStop.routeOriginName,
+        destination: firstStop.routeDestinationName,
       },
-      totalStops: sortedStops[0].totalStops,
+      totalStops: firstStop.totalStops,
       stops: sortedStops.map((stop) => ({
         sequence: stop.stopSequence,
         stationId: stop.stationId,

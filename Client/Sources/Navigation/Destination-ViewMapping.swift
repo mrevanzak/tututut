@@ -29,6 +29,8 @@ func view(for destination: SheetDestination) -> some View {
       ShareScreen()
     case .alarmConfiguration:
       AlarmConfigurationSheetContainer()
+    case .stationSchedule:
+      StationScheduleView()
     }
   }
 }

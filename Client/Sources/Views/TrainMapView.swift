@@ -4,6 +4,7 @@ import SwiftUI
 struct TrainMapView: View {
   @Environment(TrainMapStore.self) private var mapStore
   @Environment(\.showToast) private var showToast
+  @Environment(Router.self) private var router
 
   @State var isFollowing: Bool = true
   @State var focusTrigger: Bool = false
@@ -33,20 +34,25 @@ struct TrainMapView: View {
         if isTrackingTrain || (!isTrackingTrain && isStationZoomVisible) {
           ForEach(filteredStations) { station in
             Annotation(station.name, coordinate: station.coordinate) {
-              ZStack {
-                Circle()
-                  .fill(Color.blue)
-                  .frame(width: 32, height: 32)
-                  .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
-                Circle()
-                  .strokeBorder(Color.white.opacity(0.9), lineWidth: 2)
-                  .frame(width: 32, height: 32)
-                Text(station.code)
-                  .font(.system(size: 12, weight: .bold, design: .rounded))
-                  .foregroundStyle(.white)
-                  .minimumScaleFactor(0.6)
-                  .lineLimit(1)
-                  .padding(.horizontal, 4)
+              Button {
+                mapStore.selectedStationForSchedule = station
+                router.navigate(to: .sheet(.stationSchedule))
+              } label: {
+                ZStack {
+                  Circle()
+                    .fill(Color.blue)
+                    .frame(width: 32, height: 32)
+                    .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
+                  Circle()
+                    .strokeBorder(Color.white.opacity(0.9), lineWidth: 2)
+                    .frame(width: 32, height: 32)
+                  Text(station.code)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .padding(.horizontal, 4)
+                }
               }
             }
           }
