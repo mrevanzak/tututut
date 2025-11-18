@@ -1,3 +1,5 @@
+import Foundation
+import OSLog
 import StoreKit
 import SwiftUI
 
@@ -103,6 +105,31 @@ struct TrainArriveScreen: View {
           AnalyticsEventService.shared.trackJourneyCompletedMinimal(
             destinationCode: stationCode, destinationName: stationName,
             completionType: "arrival_screen")
+
+          // Save completed journey to CloudKit in background
+          if let train = trainMapStore.selectedTrain,
+            let journeyData = trainMapStore.selectedJourneyData
+          {
+            Task.detached(priority: .background) {
+              do {
+                let now = Date()
+                let completedJourney = JourneyHistoryService.buildCompletedJourney(
+                  from: train,
+                  journeyData: journeyData,
+                  actualArrivalTime: now,
+                  completionType: "arrival_screen",
+                  wasTrackedUntilArrival: true
+                )
+                try await JourneyHistoryService.shared.saveCompletedJourney(completedJourney)
+              } catch {
+                // Log error but don't block UI - CloudKit operations are best-effort
+                Logger(subsystem: "kreta", category: "TrainArriveScreen").warning(
+                  "Failed to save journey to CloudKit: \(error.localizedDescription, privacy: .public)"
+                )
+              }
+            }
+          }
+
           Task { @MainActor in
             dismiss()
             await trainMapStore.clearSelectedTrain()
