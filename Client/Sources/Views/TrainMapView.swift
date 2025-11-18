@@ -63,8 +63,9 @@ struct TrainMapView: View {
         visibleRegionSpan = region.span
       }
       // break follow as soon as user interacts with the map
-      .gesture(
+      .simultaneousGesture(
         DragGesture(minimumDistance: 0).onChanged { _ in
+            print("Check Trigger gesture")
           userHasPanned = true
           isFollowing = false
         }
