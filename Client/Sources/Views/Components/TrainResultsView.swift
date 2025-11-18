@@ -190,6 +190,17 @@ private struct TrainTrackButton: View {
     .padding(.horizontal, 16)
     .padding(.top, 20)
     .padding(.bottom, 12)
-    .background(Color.backgroundPrimary)
+    .background(
+      LinearGradient(
+        colors: [
+          Color.backgroundPrimary.opacity(0),
+          Color.backgroundPrimary.opacity(0.7),
+          Color.backgroundPrimary.opacity(0.9),
+          Color.backgroundPrimary,
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+    )
   }
 }
