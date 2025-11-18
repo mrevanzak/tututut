@@ -654,6 +654,24 @@ extension TrainMapStore {
           actualArrival: now,
           wasTrackedUntilArrival: true
         )
+
+        // Save completed journey to CloudKit in background
+        Task.detached(priority: .background) {
+          do {
+            let completedJourney = JourneyHistoryService.buildCompletedJourney(
+              from: train,
+              journeyData: data,
+              actualArrivalTime: now,
+              completionType: "scheduled_arrival",
+              wasTrackedUntilArrival: true
+            )
+            try await JourneyHistoryService.shared.saveCompletedJourney(completedJourney)
+          } catch {
+            // Log error but don't block UI - CloudKit operations are best-effort
+            Logger(subsystem: "kreta", category: "TrainMapStore").warning(
+              "Failed to save journey to CloudKit: \(error.localizedDescription, privacy: .public)")
+          }
+        }
       }
     }
 
