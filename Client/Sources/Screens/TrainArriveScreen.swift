@@ -35,6 +35,7 @@ struct TrainArriveScreen: View {
 
   @Environment(\.dismiss) var dismiss
   @Environment(\.requestReview) private var requestReview
+  @Environment(TrainMapStore.self) private var trainMapStore
 
   @State private var pulse: Bool = false
 
@@ -104,7 +105,8 @@ struct TrainArriveScreen: View {
             completionType: "arrival_screen")
           Task { @MainActor in
             dismiss()
-            try? await Task.sleep(nanoseconds: 700_000_000)
+            await trainMapStore.clearSelectedTrain()
+            try? await Task.sleep(for: .seconds(1))
             requestReview()
           }
         } label: {

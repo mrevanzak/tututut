@@ -15,19 +15,27 @@ struct TrainCard: View {
   let journeyData: TrainJourneyData?
   let onDelete: () -> Void
   var compactMode: Bool = false
-  
+
   @State private var showingDeleteAlert = false
-  
+
   var body: some View {
-    if compactMode {
-      compactView
-    } else {
-      fullSheetView
+    Group {
+      if compactMode {
+        compactView
+      } else {
+        fullSheetView
+      }
+    }.onAppear {
+      if trainStatus() == .sudahTiba {
+        router.navigate(
+          to: .fullScreen(
+            .arrival(stationCode: arrivalStationCode, stationName: arrivalStationName)))
+      }
     }
   }
-  
+
   // MARK: - Compact Mode View
-  
+
   private var compactView: some View {
     // Journey details with train image in HStack
     HStack(alignment: .center, spacing: 10) {
@@ -36,51 +44,51 @@ struct TrainCard: View {
         Text(departureStationCode)
           .font(.title)
           .bold()
-        
+
         Text(departureStationName)
           .font(.subheadline)
           .lineLimit(1)
           .minimumScaleFactor(0.7)
-        
+
         Text(formatTime(departureTime))
           .font(.subheadline)
           .foregroundStyle(.secondary)
       }
       .frame(maxWidth: .infinity)
-      
+
       // Train icon - aligned with station codes
       VStack(spacing: 12) {
-        
+
         Image(colorScheme.keretaName)
           .resizable()
           .aspectRatio(contentMode: .fill)
           .frame(width: 115, height: 20)
           .frame(maxWidth: .infinity)
-        
+
         ZStack(alignment: .top) {
           Image(colorScheme.keretaBackground)
             .resizable()
             .scaledToFill()
             .frame(maxWidth: .infinity, maxHeight: 24)
             .offset(y: -4)
-          
+
           durationStatusView
-          
+
         }
       }
       .frame(minWidth: 155)
-      
+
       // Arrival station
       VStack(spacing: 4) {
         Text(arrivalStationCode)
           .font(.title)
           .bold()
-        
+
         Text(arrivalStationName)
           .font(.subheadline)
           .lineLimit(1)
           .minimumScaleFactor(0.7)
-        
+
         Text(formatTime(arrivalTime))
           .font(.subheadline)
           .foregroundStyle(.secondary)
@@ -90,9 +98,9 @@ struct TrainCard: View {
     .padding(.horizontal, 8)
     .padding(.vertical, 16)
   }
-  
+
   // MARK: - Full Sheet View
-  
+
   private var fullSheetView: some View {
     VStack(spacing: 0) {
       // Train image at top of journey details
@@ -101,7 +109,7 @@ struct TrainCard: View {
         .aspectRatio(contentMode: .fill)
         .frame(width: 115, height: 20)
         .padding(.top, 4)
-      
+
       // Journey details without train image
       HStack(spacing: 10) {
         // Departure station
@@ -109,19 +117,18 @@ struct TrainCard: View {
           Text(departureStationCode)
             .font(.title)
             .bold()
-          
+
           Text(departureStationName)
             .font(.subheadline)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-          
+
           Text(formatTime(departureTime))
             .font(.subheadline)
             .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
-        
-        
+
         // Duration (separated text)
         VStack(spacing: 4) {
           ZStack(alignment: .top) {
@@ -130,25 +137,24 @@ struct TrainCard: View {
               .scaledToFill()
               .frame(maxWidth: .infinity, maxHeight: 24)
               .offset(y: lowerBackgroundOffset)
-            
+
             durationStatusView
-              
+
           }
         }
         .frame(minWidth: 155)
-        
-        
+
         // Arrival station
         VStack(spacing: 4) {
           Text(arrivalStationCode)
             .font(.title)
             .bold()
-          
+
           Text(arrivalStationName)
             .font(.subheadline)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-          
+
           Text(formatTime(arrivalTime))
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -156,7 +162,7 @@ struct TrainCard: View {
         .frame(maxWidth: .infinity)
       }
       .frame(maxWidth: .infinity)
-      
+
       // Share button at bottom
       Button(action: {
         // Share action
@@ -177,7 +183,7 @@ struct TrainCard: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
   }
-  
+
   @ViewBuilder
   private var durationStatusView: some View {
     switch trainStatus() {
@@ -186,28 +192,28 @@ struct TrainCard: View {
         Text("Tiba dalam")
           .font(.subheadline)
           .foregroundStyle(.secondary)
-        
+
         Text(formattedDurationTime())
           .font(.headline)
           .fontWeight(.bold)
           .foregroundStyle(.blue)
           .multilineTextAlignment(.center)
       }
-      
+
     case .belumBerangkat:
       Text("Kereta belum berangkat")
         .font(.subheadline)
         .fontWeight(.bold)
         .foregroundStyle(.blue)
         .multilineTextAlignment(.center)
-      
+
     case .sudahTiba:
       Text("Sudah tiba")
         .font(.subheadline)
         .fontWeight(.bold)
         .foregroundStyle(.blue)
         .multilineTextAlignment(.center)
-      
+
     case .tidakTersedia:
       Text("Waktu tidak tersedia")
         .font(.subheadline)
@@ -216,63 +222,62 @@ struct TrainCard: View {
         .multilineTextAlignment(.center)
     }
   }
-  
-  
+
   // MARK: - Computed Properties
-  
+
   /// Use user-selected departure station if available, otherwise use current segment
   private var departureStationCode: String {
     journeyData?.userSelectedFromStation.code ?? train.fromStation?.code ?? "--"
   }
-  
+
   private var departureStationName: String {
     journeyData?.userSelectedFromStation.name ?? train.fromStation?.name ?? "Unknown"
   }
-  
+
   private var departureTime: Date? {
     journeyData?.userSelectedDepartureTime ?? train.journeyDeparture
   }
-  
+
   /// Use user-selected arrival station if available, otherwise use current segment
   private var arrivalStationCode: String {
     journeyData?.userSelectedToStation.code ?? train.toStation?.code ?? "--"
   }
-  
+
   private var arrivalStationName: String {
     journeyData?.userSelectedToStation.name ?? train.toStation?.name ?? "Unknown"
   }
-  
+
   private var arrivalTime: Date? {
     journeyData?.userSelectedArrivalTime ?? train.journeyArrival
   }
-  
+
   // MARK: - Helper Functions
-  
+
   // Helper function to format duration time only (without "Tiba dalam" prefix)
   private func formattedDurationTime() -> String {
     guard let departure = departureTime, let arrival = arrivalTime else {
       return "Waktu tidak tersedia"
     }
-    
+
     let now = Date()
-    
+
     // Check if train hasn't departed yet
     if now < departure {
       return "Kereta belum berangkat"
     }
-    
+
     // Check if train has already arrived
     if now >= arrival {
       return "Sudah Tiba"
     }
-    
+
     // Calculate time remaining until arrival
     let timeInterval = arrival.timeIntervalSince(now)
     let totalMinutes = Int(timeInterval / 60)
-    
+
     let hours = totalMinutes / 60
     let minutes = totalMinutes % 60
-    
+
     if hours > 0 && minutes > 0 {
       return "\(hours) Jam \(minutes) Menit"
     } else if hours > 0 {
@@ -283,53 +288,52 @@ struct TrainCard: View {
       return "Sebentar Lagi"
     }
   }
-  
+
   private func formatTime(_ date: Date?) -> String {
     guard let date else { return "--:--" }
     return date.formatted(.dateTime.hour().minute())
   }
-  
+
   private func trainStatus() -> TrainStatus {
     guard let departure = departureTime,
-          let arrival = arrivalTime else {
+      let arrival = arrivalTime
+    else {
       return .tidakTersedia
     }
-    
+
     let now = Date()
-    
+
     if now < departure {
       return .belumBerangkat
     }
-    
+
     if now >= arrival {
       return .sudahTiba
     }
-    
+
     return .sedangBerjalan
   }
-  
+
   private var lowerBackgroundOffset: CGFloat {
-      switch trainStatus() {
-      case .sudahTiba:
-          return -16
-      case .belumBerangkat:
-          return -9
-      case .sedangBerjalan:
-          return -7
-      case .tidakTersedia:
-          return -7
-      }
+    switch trainStatus() {
+    case .sudahTiba:
+      return -16
+    case .belumBerangkat:
+      return -9
+    case .sedangBerjalan:
+      return -7
+    case .tidakTersedia:
+      return -7
+    }
   }
 
-  
-  
   enum TrainStatus {
     case belumBerangkat
     case sedangBerjalan
     case sudahTiba
     case tidakTersedia
   }
-  
+
 }
 
 #Preview {
@@ -347,7 +351,7 @@ struct TrainCard: View {
       city: "Jakarta Selatan"
     ),
   ]
-  
+
   let train = ProjectedTrain(
     id: "T1-0",
     code: "T1",
@@ -365,11 +369,11 @@ struct TrainCard: View {
     journeyDeparture: Date().addingTimeInterval(-60 * 60),
     journeyArrival: Date().addingTimeInterval(2 * 60 * 60)
   )
-  
+
   ZStack {
     Color.gray.opacity(0.2)
       .ignoresSafeArea()
-    
+
     TrainCard(train: train, journeyData: nil, onDelete: {}, compactMode: false)
       .padding()
   }
