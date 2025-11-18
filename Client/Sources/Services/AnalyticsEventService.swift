@@ -257,47 +257,235 @@ final class AnalyticsEventService: @unchecked Sendable {
   }
 
   func trackAlarmScheduled(
-    activityId: String, arrivalTime: Date, offsetMinutes: Int, destinationCode: String
+    activityId: String,
+    arrivalTime: Date,
+    offsetMinutes: Int,
+    destinationCode: String,
+    trainName: String? = nil,
+    destinationName: String? = nil,
+    alarmTime: Date? = nil
   ) {
+    var properties: [String: Any] = [
+      "activity_id": activityId,
+      "arrival_time": iso8601String(arrivalTime),
+      "alarm_offset_minutes": offsetMinutes,
+      "destination_code": destinationCode,
+    ]
+
+    if let trainName {
+      properties["train_name"] = trainName
+    }
+    if let destinationName {
+      properties["destination_name"] = destinationName
+    }
+    if let alarmTime {
+      properties["alarm_time"] = iso8601String(alarmTime)
+      let timeUntilAlarmMinutes = Int(max(0, alarmTime.timeIntervalSinceNow) / 60)
+      properties["time_until_alarm_minutes"] = timeUntilAlarmMinutes
+    }
+
     telemetry.track(
       event: "alarm_scheduled",
-      properties: [
-        "activity_id": activityId,
-        "arrival_time": iso8601String(arrivalTime),
-        "alarm_offset_minutes": offsetMinutes,
-        "destination_code": destinationCode,
-      ]
+      properties: properties
     )
   }
 
-  func trackAlarmTriggered(activityId: String) {
+  func trackAlarmTriggered(
+    activityId: String,
+    trainName: String? = nil,
+    destinationName: String? = nil,
+    offsetMinutes: Int? = nil,
+    actualTimeUntilArrivalMinutes: Int? = nil
+  ) {
+    var properties: [String: Any] = [
+      "activity_id": activityId,
+      "triggered_at": iso8601String(Date()),
+    ]
+
+    if let trainName {
+      properties["train_name"] = trainName
+    }
+    if let destinationName {
+      properties["destination_name"] = destinationName
+    }
+    if let offsetMinutes {
+      properties["offset_minutes"] = offsetMinutes
+    }
+    if let actualTimeUntilArrivalMinutes {
+      properties["actual_time_until_arrival_minutes"] = actualTimeUntilArrivalMinutes
+    }
+
     telemetry.track(
       event: "alarm_triggered",
-      properties: [
-        "activity_id": activityId,
-        "triggered_at": iso8601String(Date()),
-      ]
+      properties: properties
     )
   }
 
   func trackAlarmConfigured(
     offsetMinutes: Int,
     isValid: Bool,
-    validationFailureReason: String?
+    validationFailureReason: String?,
+    isInitialSetup: Bool? = nil,
+    previousOffsetMinutes: Int? = nil,
+    journeyDurationMinutes: Int? = nil,
+    validationWarnings: [String]? = nil
   ) {
     var properties: [String: Any] = [
       "alarm_offset_minutes": offsetMinutes,
       "is_valid": isValid,
       "configured_at": iso8601String(Date()),
     ]
-    
+
     if let reason = validationFailureReason {
       properties["validation_failure_reason"] = reason
     }
-    
+    if let isInitialSetup {
+      properties["is_initial_setup"] = isInitialSetup
+    }
+    if let previousOffsetMinutes {
+      properties["previous_offset_minutes"] = previousOffsetMinutes
+    }
+    if let journeyDurationMinutes {
+      properties["journey_duration_minutes"] = journeyDurationMinutes
+    }
+    if let validationWarnings {
+      properties["validation_warnings"] = validationWarnings
+    }
+
     telemetry.track(
       event: "alarm_configured",
       properties: properties
+    )
+  }
+
+  // MARK: - Alarm Authorization Events
+
+  func trackAlarmAuthorizationRequested(previousState: String) {
+    telemetry.track(
+      event: "alarm_authorization_requested",
+      properties: [
+        "requested_at": iso8601String(Date()),
+        "previous_state": previousState,
+      ]
+    )
+  }
+
+  func trackAlarmAuthorizationGranted(isFirstTime: Bool) {
+    telemetry.track(
+      event: "alarm_authorization_granted",
+      properties: [
+        "granted_at": iso8601String(Date()),
+        "is_first_time": isFirstTime,
+      ]
+    )
+  }
+
+  func trackAlarmAuthorizationDenied(wasPreviouslyDenied: Bool) {
+    telemetry.track(
+      event: "alarm_authorization_denied",
+      properties: [
+        "denied_at": iso8601String(Date()),
+        "was_previously_denied": wasPreviouslyDenied,
+      ]
+    )
+  }
+
+  // MARK: - Alarm Lifecycle Events
+
+  func trackAlarmSchedulingFailed(
+    activityId: String,
+    errorReason: String,
+    arrivalTime: Date,
+    offsetMinutes: Int
+  ) {
+    telemetry.track(
+      event: "alarm_scheduling_failed",
+      properties: [
+        "activity_id": activityId,
+        "error_reason": errorReason,
+        "arrival_time": iso8601String(arrivalTime),
+        "offset_minutes": offsetMinutes,
+        "attempted_at": iso8601String(Date()),
+      ]
+    )
+  }
+
+  func trackAlarmCancelled(
+    activityId: String,
+    reason: String,
+    wasTriggered: Bool,
+    timeUntilAlarmMinutes: Int? = nil
+  ) {
+    var properties: [String: Any] = [
+      "activity_id": activityId,
+      "cancellation_reason": reason,
+      "was_triggered": wasTriggered,
+    ]
+
+    if let timeUntilAlarmMinutes {
+      properties["time_until_alarm_minutes"] = timeUntilAlarmMinutes
+    }
+
+    telemetry.track(
+      event: "alarm_cancelled",
+      properties: properties
+    )
+  }
+
+  func trackAlarmRescheduled(
+    activityId: String,
+    previousOffset: Int,
+    newOffset: Int,
+    previousAlarmTime: Date,
+    newAlarmTime: Date
+  ) {
+    telemetry.track(
+      event: "alarm_rescheduled",
+      properties: [
+        "activity_id": activityId,
+        "previous_offset_minutes": previousOffset,
+        "new_offset_minutes": newOffset,
+        "previous_alarm_time": iso8601String(previousAlarmTime),
+        "new_alarm_time": iso8601String(newAlarmTime),
+      ]
+    )
+  }
+
+  // MARK: - Alarm Interaction Events
+
+  func trackAlarmDismissed(activityId: String, timeSinceTriggeredSeconds: Int) {
+    telemetry.track(
+      event: "alarm_dismissed",
+      properties: [
+        "activity_id": activityId,
+        "dismissed_at": iso8601String(Date()),
+        "time_since_triggered_seconds": timeSinceTriggeredSeconds,
+      ]
+    )
+  }
+
+  func trackAlarmInteracted(activityId: String, actionType: String) {
+    telemetry.track(
+      event: "alarm_interacted",
+      properties: [
+        "activity_id": activityId,
+        "action_type": actionType,
+        "interacted_at": iso8601String(Date()),
+      ]
+    )
+  }
+
+  // MARK: - Alarm Preference Events
+
+  func trackAlarmPreferenceChanged(preferenceType: String, previousValue: Any, newValue: Any) {
+    telemetry.track(
+      event: "alarm_preference_changed",
+      properties: [
+        "preference_type": preferenceType,
+        "previous_value": previousValue,
+        "new_value": newValue,
+        "changed_at": iso8601String(Date()),
+      ]
     )
   }
 

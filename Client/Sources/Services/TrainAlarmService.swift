@@ -52,11 +52,16 @@ final class TrainAlarmService: @unchecked Sendable {
     let currentState = alarmManager.authorizationState
     logger.info("AlarmKit authorization state: \(String(describing: currentState))")
 
+    let previousStateString = authorizationStateString(currentState)
+
     switch currentState {
     case .notDetermined:
-      return await requestNewAuthorization()
+      AnalyticsEventService.shared.trackAlarmAuthorizationRequested(
+        previousState: previousStateString)
+      return await requestNewAuthorization(isFirstTime: true)
     case .denied:
       logger.warning("AlarmKit authorization was previously denied")
+      AnalyticsEventService.shared.trackAlarmAuthorizationDenied(wasPreviouslyDenied: true)
       return false
     case .authorized:
       logger.info("AlarmKit authorization already granted")
@@ -67,15 +72,36 @@ final class TrainAlarmService: @unchecked Sendable {
     }
   }
 
-  private func requestNewAuthorization() async -> Bool {
+  private func requestNewAuthorization(isFirstTime: Bool) async -> Bool {
     do {
       logger.info("Requesting AlarmKit authorization")
       let state = try await alarmManager.requestAuthorization()
       logger.info("AlarmKit authorization result: \(String(describing: state))")
+
+      if state == .authorized {
+        AnalyticsEventService.shared.trackAlarmAuthorizationGranted(isFirstTime: isFirstTime)
+      } else {
+        AnalyticsEventService.shared.trackAlarmAuthorizationDenied(wasPreviouslyDenied: false)
+      }
+
       return state == .authorized
     } catch {
       logger.error("Error requesting AlarmKit authorization: \(error.localizedDescription)")
+      AnalyticsEventService.shared.trackAlarmAuthorizationDenied(wasPreviouslyDenied: false)
       return false
+    }
+  }
+
+  private func authorizationStateString(_ state: AlarmManager.AuthorizationState) -> String {
+    switch state {
+    case .notDetermined:
+      return "notDetermined"
+    case .denied:
+      return "denied"
+    case .authorized:
+      return "authorized"
+    @unknown default:
+      return "unknown"
     }
   }
 
@@ -129,7 +155,13 @@ final class TrainAlarmService: @unchecked Sendable {
       metadata: metadata
     )
 
-    try await scheduleAlarm(id: alarmId, configuration: configuration, activityId: activityId)
+    try await scheduleAlarm(
+      id: alarmId,
+      configuration: configuration,
+      activityId: activityId,
+      metadata: metadata,
+      arrivalTime: arrivalTime
+    )
   }
 
   private func calculateAlarmTime(arrivalTime: Date, offsetMinutes: Int) -> Date {
@@ -209,7 +241,9 @@ final class TrainAlarmService: @unchecked Sendable {
   private func scheduleAlarm(
     id: Alarm.ID,
     configuration: AlarmManager.AlarmConfiguration<TrainAlarmMetadata>,
-    activityId: String
+    activityId: String,
+    metadata: TrainAlarmMetadata,
+    arrivalTime: Date
   ) async throws {
     do {
       logger.info("Attempting to schedule AlarmKit alarm")
@@ -225,6 +259,12 @@ final class TrainAlarmService: @unchecked Sendable {
       logger.debug("Alarm state: \(String(describing: scheduledAlarm.state))")
     } catch {
       logger.error("Failed to schedule AlarmKit alarm: \(error.localizedDescription)")
+      AnalyticsEventService.shared.trackAlarmSchedulingFailed(
+        activityId: activityId,
+        errorReason: error.localizedDescription,
+        arrivalTime: arrivalTime,
+        offsetMinutes: metadata.offsetMinutes
+      )
       throw TrainAlarmError.schedulingFailed(error.localizedDescription)
     }
   }
@@ -232,22 +272,41 @@ final class TrainAlarmService: @unchecked Sendable {
   // MARK: - Alarm Cancellation
 
   /// Cancel the arrival alarm for a specific Live Activity
-  func cancelArrivalAlarm(activityId: String) async {
+  func cancelArrivalAlarm(
+    activityId: String, reason: String = "journey_ended", wasTriggered: Bool = false
+  ) async {
     let alarmId = lockQueue.sync { _activeAlarmIds[activityId] }
     guard let alarmId = alarmId else { return }
+
+    // Calculate time until alarm if we can get the alarm info
+    var timeUntilAlarmMinutes: Int? = nil
+    if let alarm = try? alarmManager.alarms.first(where: { $0.id == alarmId }),
+      case .fixed(let scheduledTime) = alarm.schedule
+    {
+      let minutes = Int(max(0, scheduledTime.timeIntervalSinceNow) / 60)
+      timeUntilAlarmMinutes = minutes > 0 ? minutes : nil
+    }
 
     do {
       try alarmManager.cancel(id: alarmId)
       _ = lockQueue.sync { _activeAlarmIds.removeValue(forKey: activityId) }
       logger.info("Cancelled AlarmKit alarm for activity \(activityId)")
+
+      AnalyticsEventService.shared.trackAlarmCancelled(
+        activityId: activityId,
+        reason: reason,
+        wasTriggered: wasTriggered,
+        timeUntilAlarmMinutes: timeUntilAlarmMinutes
+      )
     } catch {
       logger.warning("Failed to cancel alarm: \(error.localizedDescription)")
     }
   }
 
   /// Cancel all active arrival alarms
-  func cancelAllAlarms() async {
+  func cancelAllAlarms(reason: String = "manual_cancel") async {
     let alarmIds = lockQueue.sync { Array(_activeAlarmIds.values) }
+    let activityIds = lockQueue.sync { Array(_activeAlarmIds.keys) }
     let count = alarmIds.count
 
     for alarmId in alarmIds {
@@ -263,6 +322,16 @@ final class TrainAlarmService: @unchecked Sendable {
     }
 
     logger.info("Cancelled all \(count) AlarmKit alarms")
+
+    // Track cancellation for each activity
+    for activityId in activityIds {
+      AnalyticsEventService.shared.trackAlarmCancelled(
+        activityId: activityId,
+        reason: reason,
+        wasTriggered: false,
+        timeUntilAlarmMinutes: nil
+      )
+    }
   }
 
   // MARK: - Alarm Queries

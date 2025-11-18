@@ -31,7 +31,14 @@ final class AlarmPreferences: @unchecked Sendable {
       return userDefaults.bool(forKey: Keys.defaultAlarmEnabled)
     }
     set {
+      let previousValue = defaultAlarmEnabled
+      guard previousValue != newValue else { return }
       userDefaults.set(newValue, forKey: Keys.defaultAlarmEnabled)
+      AnalyticsEventService.shared.trackAlarmPreferenceChanged(
+        preferenceType: "enabled",
+        previousValue: previousValue,
+        newValue: newValue
+      )
     }
   }
 
@@ -43,7 +50,14 @@ final class AlarmPreferences: @unchecked Sendable {
       return value > 0 ? value : 10
     }
     set {
+      let previousValue = defaultAlarmOffsetMinutes
+      guard previousValue != newValue else { return }
       userDefaults.set(newValue, forKey: Keys.defaultAlarmOffsetMinutes)
+      AnalyticsEventService.shared.trackAlarmPreferenceChanged(
+        preferenceType: "offset_minutes",
+        previousValue: previousValue,
+        newValue: newValue
+      )
     }
   }
 

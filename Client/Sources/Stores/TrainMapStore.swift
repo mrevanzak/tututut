@@ -316,8 +316,12 @@ extension TrainMapStore {
 
   func applyAlarmConfiguration(
     offsetMinutes: Int,
-    validationResult: AlarmValidationResult?
+    validationResult: AlarmValidationResult?,
+    journeyDurationMinutes: Int? = nil
   ) async {
+    let previousOffset = AlarmPreferences.shared.defaultAlarmOffsetMinutes
+    let isInitialSetup = !AlarmPreferences.shared.hasCompletedInitialSetup
+
     AlarmPreferences.shared.defaultAlarmOffsetMinutes = offsetMinutes
     AlarmPreferences.shared.markInitialSetupComplete()
 
@@ -327,7 +331,10 @@ extension TrainMapStore {
     AnalyticsEventService.shared.trackAlarmConfigured(
       offsetMinutes: offsetMinutes,
       isValid: validationResult?.isValid ?? true,
-      validationFailureReason: failureReasonDescription
+      validationFailureReason: failureReasonDescription,
+      isInitialSetup: isInitialSetup,
+      previousOffsetMinutes: previousOffset != offsetMinutes ? previousOffset : nil,
+      journeyDurationMinutes: journeyDurationMinutes
     )
 
     await liveActivityService.refreshAlarmConfiguration(

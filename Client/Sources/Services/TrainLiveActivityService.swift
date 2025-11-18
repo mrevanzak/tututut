@@ -486,6 +486,7 @@ final class TrainLiveActivityService: @unchecked Sendable {
     )
 
     do {
+      let alarmTime = arrivalTime.addingTimeInterval(-Double(alarmOffsetMinutes * 60))
       try await TrainAlarmService.shared.scheduleArrivalAlarm(
         activityId: activityId,
         arrivalTime: arrivalTime,
@@ -499,7 +500,10 @@ final class TrainLiveActivityService: @unchecked Sendable {
         activityId: activityId,
         arrivalTime: arrivalTime,
         offsetMinutes: alarmOffsetMinutes,
-        destinationCode: destinationCode
+        destinationCode: destinationCode,
+        trainName: trainName,
+        destinationName: destinationName,
+        alarmTime: alarmTime
       )
     } catch {
       await stateRegistry.clearAlarmSnapshot(for: activityId)
@@ -546,7 +550,8 @@ final class TrainLiveActivityService: @unchecked Sendable {
   ) async {
     await cancelTimer(for: activityId)
     await stateRegistry.clearAlarmSnapshot(for: activityId)
-    await TrainAlarmService.shared.cancelArrivalAlarm(activityId: activityId)
+    await TrainAlarmService.shared.cancelArrivalAlarm(
+      activityId: activityId, reason: "journey_ended", wasTriggered: false)
 
     guard let activity = findActivity(with: activityId) else { return }
     await activity.end(nil, dismissalPolicy: dismissalPolicy)
@@ -555,7 +560,7 @@ final class TrainLiveActivityService: @unchecked Sendable {
   @MainActor
   func endAllImmediately() async {
     await cancelAllTimers()
-    await TrainAlarmService.shared.cancelAllAlarms()
+    await TrainAlarmService.shared.cancelAllAlarms(reason: "manual_cancel")
 
     for activity in Activity<TrainActivityAttributes>.activities {
       await stateRegistry.clearAlarmSnapshot(for: activity.id)
@@ -708,10 +713,32 @@ final class TrainLiveActivityService: @unchecked Sendable {
   @MainActor
   func refreshAlarmConfiguration(alarmOffsetMinutes: Int) async {
     let activities = Activity<TrainActivityAttributes>.activities
+    let previousOffset = AlarmPreferences.shared.defaultAlarmOffsetMinutes
 
+    // Track rescheduling for each activity
     for activity in activities {
-      await TrainAlarmService.shared.cancelArrivalAlarm(activityId: activity.id)
+      let previousAlarmTime: Date? = {
+        guard let arrivalTime = activity.attributes.destination.estimatedTime else { return nil }
+        return arrivalTime.addingTimeInterval(-Double(previousOffset * 60))
+      }()
+
+      await TrainAlarmService.shared.cancelArrivalAlarm(
+        activityId: activity.id, reason: "rescheduled", wasTriggered: false)
       await stateRegistry.clearAlarmSnapshot(for: activity.id)
+
+      // Track rescheduling if we have the necessary data
+      if let arrivalTime = activity.attributes.destination.estimatedTime,
+        let previousAlarmTime = previousAlarmTime
+      {
+        let newAlarmTime = arrivalTime.addingTimeInterval(-Double(alarmOffsetMinutes * 60))
+        AnalyticsEventService.shared.trackAlarmRescheduled(
+          activityId: activity.id,
+          previousOffset: previousOffset,
+          newOffset: alarmOffsetMinutes,
+          previousAlarmTime: previousAlarmTime,
+          newAlarmTime: newAlarmTime
+        )
+      }
     }
 
     let alarmEnabled = AlarmPreferences.shared.defaultAlarmEnabled
@@ -729,7 +756,8 @@ final class TrainLiveActivityService: @unchecked Sendable {
         arrivalTime: activity.attributes.destination.estimatedTime,
         trainName: activity.attributes.trainName,
         destinationName: activity.attributes.destination.name,
-        destinationCode: activity.attributes.destination.code
+        destinationCode: activity.attributes.destination.code,
+        force: true
       )
 
       await scheduleServerStateUpdates(
@@ -921,11 +949,24 @@ final class TrainLiveActivityService: @unchecked Sendable {
 
   @MainActor
   private func handleAlarmTriggered(for activityId: String) async {
-    guard findActivity(with: activityId) != nil else {
+    guard let activity = findActivity(with: activityId) else {
       return
     }
 
-    AnalyticsEventService.shared.trackAlarmTriggered(activityId: activityId)
+    let destination = activity.attributes.destination
+    let offsetMinutes = AlarmPreferences.shared.defaultAlarmOffsetMinutes
+    let actualTimeUntilArrivalMinutes: Int? = {
+      guard let arrivalTime = destination.estimatedTime else { return nil }
+      return Int(max(0, arrivalTime.timeIntervalSinceNow) / 60)
+    }()
+
+    AnalyticsEventService.shared.trackAlarmTriggered(
+      activityId: activityId,
+      trainName: activity.attributes.trainName,
+      destinationName: destination.name,
+      offsetMinutes: offsetMinutes,
+      actualTimeUntilArrivalMinutes: actualTimeUntilArrivalMinutes
+    )
     await transitionToPrepareToDropOff(activityId: activityId)
   }
 }

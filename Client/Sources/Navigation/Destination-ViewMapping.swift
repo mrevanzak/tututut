@@ -80,10 +80,17 @@ struct AlarmConfigurationSheetContainer: View {
     train: ProjectedTrain,
     journeyData: TrainJourneyData
   ) async {
+    // Calculate journey duration for analytics
+    let journeyDurationMinutes = Int(
+      journeyData.userSelectedArrivalTime.timeIntervalSince(journeyData.userSelectedDepartureTime)
+        / 60
+    )
+
     // Apply alarm configuration (saves preferences and tracks analytics)
     await store.applyAlarmConfiguration(
       offsetMinutes: offset,
-      validationResult: latestValidationResult
+      validationResult: latestValidationResult,
+      journeyDurationMinutes: journeyDurationMinutes
     )
 
     // Check if we're updating an existing journey or starting a new one
