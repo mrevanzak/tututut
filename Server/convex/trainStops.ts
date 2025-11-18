@@ -203,3 +203,44 @@ export const listAllTrains = query({
     }));
   },
 });
+
+/**
+ * Get all trains that stop at a specific station
+ * Use case: Show train schedule for a station
+ */
+export const getTrainsAtStation = query({
+  args: {
+    stationId: v.string(),
+  },
+  handler: async (ctx, { stationId }) => {
+    // Get all stops at this station
+    const stops = await ctx.db
+      .query("trainStops")
+      .withIndex("by_stationId", (q) => q.eq("stationId", stationId))
+      .collect();
+
+    // Sort by departure time (or arrival if no departure)
+    const sortedStops = stops.sort((a, b) => {
+      const timeA = a.departureTime || a.arrivalTime || "";
+      const timeB = b.departureTime || b.arrivalTime || "";
+      return timeA.localeCompare(timeB);
+    });
+
+    return sortedStops.map((stop) => ({
+      trainId: stop.trainId,
+      trainCode: stop.trainCode,
+      trainName: stop.trainName,
+      stationId: stop.stationId,
+      stationCode: stop.stationCode,
+      stationName: stop.stationName,
+      city: stop.city,
+      arrivalTime: stop.arrivalTime,
+      departureTime: stop.departureTime,
+      stopSequence: stop.stopSequence,
+      origin: stop.routeOriginName,
+      destination: stop.routeDestinationName,
+      isOrigin: stop.isOrigin,
+      isDestination: stop.isDestination,
+    }));
+  },
+});
