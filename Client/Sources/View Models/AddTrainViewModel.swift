@@ -447,8 +447,25 @@ extension AddTrainView {
         }
       }
 
+      // Filter out trains that have already arrived (only for today)
+      let now = Date()
+      let calendar = Calendar.current
+      let selectedDateOrToday = selectedDate ?? now
+      
+      let activeTrains: [JourneyService.AvailableTrainItem]
+      
+      // Only filter past trains if selected date is today
+      if calendar.isDateInToday(selectedDateOrToday) {
+        activeTrains = trains.filter { item in
+          item.segmentArrival > now
+        }
+      } else {
+        // For future dates, show all trains
+        activeTrains = trains
+      }
+
       // Sort by train name alphabetically, then by departure time
-      return trains.sorted { lhs, rhs in
+      return activeTrains.sorted { lhs, rhs in
         // First compare by train name
         let nameComparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
         if nameComparison != .orderedSame {

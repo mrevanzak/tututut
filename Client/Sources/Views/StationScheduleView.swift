@@ -113,6 +113,7 @@ struct StationScheduleView: View {
           .font(.title2)
           .foregroundStyle(.secondary)
       }
+      .buttonStyle(.plain)
     }
     .padding()
     .background(.backgroundPrimary)
@@ -243,7 +244,8 @@ struct StationScheduleView: View {
       if a.trainName != b.trainName {
         return a.trainName < b.trainName
       }
-      return "\(a.origin)-\(a.destination)" < "\(b.origin)-\(b.destination)"
+      return a.origin < b.origin
+//      return "\(a.origin)-\(a.destination)" < "\(b.origin)-\(b.destination)"
     }
   }
   
@@ -413,15 +415,6 @@ private struct TrainGroupCard: View {
       Button(action: onToggleExpand) {
         HStack(spacing: 12) {
           // Train icon
-          ZStack {
-            Circle()
-              .fill(Color.blue.opacity(0.1))
-              .frame(width: 48, height: 48)
-            
-            Image(systemName: "tram.fill")
-              .font(.title3)
-              .foregroundStyle(.blue)
-          }
           
           VStack(alignment: .leading, spacing: 4) {
             // Train name and code
@@ -466,7 +459,7 @@ private struct TrainGroupCard: View {
               if let next = group.nextDeparture?.departureTime {
                 Text("• Berikutnya: \(formatTime(next))")
                   .font(.caption.weight(.medium))
-                  .foregroundStyle(.blue)
+                  .foregroundStyle(.highlight)
               }
             }
             .padding(.top, 2)
@@ -543,7 +536,7 @@ private struct ScheduleTimeRow: View {
           // Time indicator
           VStack(spacing: 4) {
             Circle()
-              .fill(isPast ? Color.gray.opacity(0.3) : Color.blue)
+              .fill(isPast ? Color.gray.opacity(0.3) : Color.highlight)
               .frame(width: 12, height: 12)
             
             if !isLast {
@@ -571,7 +564,7 @@ private struct ScheduleTimeRow: View {
             } else {
               Text("Tap untuk lacak")
                 .font(.caption.weight(.medium))
-                .foregroundStyle(.blue)
+                .foregroundStyle(.highlight)
             }
           }
           
@@ -580,7 +573,7 @@ private struct ScheduleTimeRow: View {
           if !isPast {
             Image(systemName: "arrow.right.circle.fill")
               .font(.title3)
-              .foregroundStyle(.blue)
+              .foregroundStyle(.highlight)
           }
         }
         .padding(.horizontal, 16)
@@ -645,12 +638,12 @@ private struct TrainScheduleRow: View {
           // Train icon
           ZStack {
             Circle()
-              .fill(Color.blue.opacity(0.1))
+              .fill(Color.highlight.opacity(0.1))
               .frame(width: 48, height: 48)
             
             Image(systemName: "tram.fill")
               .font(.title3)
-              .foregroundStyle(.blue)
+              .foregroundStyle(.highlight)
           }
           
           VStack(alignment: .leading, spacing: 4) {
@@ -705,7 +698,7 @@ private struct TrainScheduleRow: View {
         }
         .padding(16)
       }
-      .background(isSelected ? Color.blue.opacity(0.05) : Color.backgroundSecondary)
+      .background(isSelected ? Color.highlight.opacity(0.05) : Color.backgroundSecondary)
       .cornerRadius(12)
     }
     .buttonStyle(.plain)
@@ -749,13 +742,15 @@ private struct TimeLabel: View {
 #Preview("Station Schedule View") {
   let store = TrainMapStore.preview
   store.selectedStationForSchedule = Station(
-    id: "GMR",
-    code: "GMR",
-    name: "Gambir",
-    position: Position(latitude: -6.1754, longitude: 106.8272),
+    id: "102",
+    code: "MRI",
+    name: "Manggarai",
+    position: Position(latitude: -6.2102, longitude: 106.8499),
     city: "Jakarta"
   )
   
   return StationScheduleView()
+    .environment(Router.previewRouter())
     .environment(store)
+    .environment(\.showToast, .preview)
 }
