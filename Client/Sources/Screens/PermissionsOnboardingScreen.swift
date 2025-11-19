@@ -67,7 +67,7 @@ struct PermissionsOnboardingScreen: View {
           .frame(maxWidth: .infinity)
           .frame(height: 56)
           .background(Color.highlight)
-          .foregroundStyle(.white)
+          .foregroundStyle(.lessDark)
           .clipShape(Capsule())
         }
         .buttonStyle(ScaleButtonStyle())

@@ -186,6 +186,7 @@ private struct TrainTrackButton: View {
         .background(isEnabled ? .highlight : .inactiveButton)
         .cornerRadius(1000)
     }
+    .buttonStyle(ScaleButtonStyle())
     .disabled(!isEnabled)
     .padding(.horizontal, 16)
     .padding(.top, 20)
