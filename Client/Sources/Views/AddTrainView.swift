@@ -54,7 +54,7 @@ struct AddTrainView: View {
           .font(.title2.weight(.bold))
 
         StepTitleView(
-          text: viewModel.showCalendar ? "Pilih Tanggal" : viewModel.stepTitle,
+          text: viewModel.stepTitle,
           showCalendar: viewModel.showCalendar
         )
         .font(.callout)
@@ -148,11 +148,16 @@ struct AddTrainView: View {
 
   @ViewBuilder
   private func dateSelectionView() -> some View {
-    if viewModel.showCalendar {
-      calendarView()
-    } else {
-      datePickerView()
+    ZStack {
+      if viewModel.showCalendar {
+        calendarView()
+          .transition(.move(edge: .trailing))
+      } else {
+        datePickerView()
+          .transition(.move(edge: .leading))
+      }
     }
+    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.showCalendar)
   }
 
   private func datePickerView() -> some View {

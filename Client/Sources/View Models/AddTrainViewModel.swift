@@ -7,6 +7,7 @@
 
 import Foundation
 import Observation
+import SwiftUI
 
 // MARK: - Selection Step
 
@@ -335,12 +336,16 @@ extension AddTrainView {
     }
 
     func showCalendarView() {
-      showCalendar = true
+      withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        showCalendar = true
+      }
     }
 
     func hideCalendar() {
-      selectedDate = nil
-      showCalendar = false
+      withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        selectedDate = nil
+        showCalendar = false
+      }
     }
 
     func goBackToDeparture() {
@@ -435,7 +440,7 @@ extension AddTrainView {
       let names = Set(filteredTrains.map { $0.name }).sorted()
       return ["Semua Kereta"] + names
     }
-    
+
     var searchableTrains: [JourneyService.AvailableTrainItem] {
       let trains: [JourneyService.AvailableTrainItem]
 
@@ -461,6 +466,10 @@ extension AddTrainView {
     }
 
     var stepTitle: String {
+      if showCalendar {
+        return "Pilih Tanggal"
+      }
+
       switch currentStep {
       case .departure:
         return "Pilih Stasiun Keberangkatan"
