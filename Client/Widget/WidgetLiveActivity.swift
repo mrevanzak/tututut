@@ -37,32 +37,7 @@ struct BeforeBoardingView: View {
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
-
-        // HStack(alignment: .firstTextBaseline, spacing: 6) {
-        //   HStack(spacing: 4) {
-        //     Image(systemName: "train.side.middle.car")
-        //       .resizable()
-        //       .scaledToFit()
-        //       .frame(width: 12, height: 12)
-        //     Text("\(context.attributes.seatClass.number) \(context.attributes.seatClass.name)")
-        //   }
-
-        //   HStack(spacing: 4) {
-        //     Image(systemName: "chair.lounge.fill")
-        //       .resizable()
-        //       .scaledToFit()
-        //       .frame(width: 12, height: 12)
-        //     Text(context.attributes.seatNumber)
-        //   }
-        // }
-        // .lineLimit(1)
-        // .minimumScaleFactor(0.8)
-        // .font(.caption2)
-        // .monospacedDigit()
-        // .foregroundStyle(.secondary)
       }
-
-      Spacer()
 
       VStack(alignment: .trailing, spacing: 4) {
         Text("Berangkat Dalam")
@@ -333,7 +308,7 @@ struct TrainExpandedBottomView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-                .truncationMode(.tail)
+                .minimumScaleFactor(0.8)
             }
             .containerRelativeFrame(.horizontal) { size, _ in
               size * 0.25
@@ -344,6 +319,7 @@ struct TrainExpandedBottomView: View {
                 .font(.caption)
                 .bold()
                 .foregroundColor(.gray)
+                .minimumScaleFactor(0.8)
 
               Image(.kereta)
                 .resizable()
@@ -366,7 +342,7 @@ struct TrainExpandedBottomView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-                .truncationMode(.tail)
+                .minimumScaleFactor(0.8)
             }
             .containerRelativeFrame(.horizontal) { size, _ in
               size * 0.25
