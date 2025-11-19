@@ -24,14 +24,18 @@ struct TrainResultsView: View {
     ZStack {
       trainList
       
-      TrainFilterPicker(
-        selectedFilter: Binding(
-          get: { selectedTrainNameFilter },
-          set: { onFilterChanged($0) }
-        ),
-        uniqueTrainNames: uniqueTrainNames,
-        isSearchBarOverContent: isSearchBarOverContent
-      )
+      VStack(spacing: 0) {
+        Color.clear.frame(height: 58)
+        
+        TrainFilterPicker(
+          selectedFilter: Binding(
+            get: { selectedTrainNameFilter },
+            set: { onFilterChanged($0) }
+          ),
+          uniqueTrainNames: uniqueTrainNames,
+          isSearchBarOverContent: isSearchBarOverContent
+        )
+      }
     }
     .safeAreaInset(edge: .bottom) {
       TrainTrackButton(
@@ -66,6 +70,9 @@ struct TrainResultsView: View {
       }
     }
     .listStyle(.plain)
+    .safeAreaInset(edge: .top) {
+      Color.clear.frame(height: 50)
+    }
     .coordinateSpace(name: "listScroll")
     .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
       isSearchBarOverContent = value < 14

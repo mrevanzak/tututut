@@ -42,7 +42,6 @@ struct AddTrainView: View {
   private func headerView() -> some View {
     VStack(alignment: .leading, spacing: 8) {
       headerTitleSection
-      searchBarSection
     }
     .padding()
   }
@@ -59,6 +58,7 @@ struct AddTrainView: View {
         )
         .font(.callout)
         .foregroundStyle(.secondary)
+        .frame(height: 2, alignment: .leading)
       }
 
       Spacer()
@@ -101,6 +101,30 @@ struct AddTrainView: View {
       }
     )
   }
+  
+  private var floatingSearchBar: some View {
+    VStack(spacing: 0) {
+      searchBarSection
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .background(
+          LinearGradient(
+            colors: [
+              Color.backgroundPrimary,
+              Color.backgroundPrimary.opacity(0.9),
+              Color.backgroundPrimary.opacity(0.7),
+              Color.backgroundPrimary.opacity(0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+          )
+        )
+      
+      Spacer()
+    }
+    .allowsHitTesting(true)
+  }
 
   // MARK: - Content View
 
@@ -119,16 +143,23 @@ struct AddTrainView: View {
   // MARK: - Station List View
 
   private func stationListView() -> some View {
-    List(viewModel.filteredStations) { station in
-      StationRow(station: station)
-        .onTapGesture {
-          viewModel.selectStation(station)
-        }
-        .listRowBackground(Color.clear)
-    }
-    .listStyle(.plain)
-    .overlay {
-      stationListOverlay
+    ZStack(alignment: .top) {
+      List(viewModel.filteredStations) { station in
+        StationRow(station: station)
+          .onTapGesture {
+            viewModel.selectStation(station)
+          }
+          .listRowBackground(Color.clear)
+      }
+      .listStyle(.plain)
+      .safeAreaInset(edge: .top) {
+        Color.clear.frame(height: 40)
+      }
+      .overlay {
+        stationListOverlay
+      }
+      
+      floatingSearchBar
     }
   }
 
@@ -148,23 +179,29 @@ struct AddTrainView: View {
 
   @ViewBuilder
   private func dateSelectionView() -> some View {
-    if viewModel.showCalendar {
-      calendarView()
-    } else {
-      datePickerView()
+    ZStack(alignment: .top) {
+      if viewModel.showCalendar {
+        calendarView()
+      } else {
+        datePickerView()
+      }
+      
+      floatingSearchBar
     }
   }
 
   private func datePickerView() -> some View {
-    VStack(spacing: 16) {
-      todayOption
-      Divider()
-      tomorrowOption
-      Divider()
-      customDateOption
-      Spacer()
+    ScrollView {
+      VStack(spacing: 16) {
+        todayOption
+        Divider()
+        tomorrowOption
+        Divider()
+        customDateOption
+      }
+      .padding()
+      .padding(.top, 48)
     }
-    .padding()
   }
 
   private var todayOption: some View {
@@ -228,20 +265,24 @@ struct AddTrainView: View {
   // MARK: - Train Results View
 
   private func trainResultsView() -> some View {
-    TrainResultsView(
-      trains: viewModel.searchableTrains,
-      uniqueTrainNames: viewModel.uniqueTrainNames,
-      selectedTrainNameFilter: viewModel.selectedTrainNameFilter,
-      isLoading: viewModel.isLoadingTrains,
-      isTrainSelected: { viewModel.isTrainSelected($0) },
-      onTrainTapped: { viewModel.toggleTrainSelection($0) },
-      onTrainSelected: {
-        handleTrainSelectionAction()
-      },
-      onFilterChanged: { viewModel.selectedTrainNameFilter = $0 },
-      selectedTrainItem: viewModel.selectedTrainItem,
-      isSearchBarOverContent: $isSearchBarOverContent
-    )
+    ZStack(alignment: .top) {
+      TrainResultsView(
+        trains: viewModel.searchableTrains,
+        uniqueTrainNames: viewModel.uniqueTrainNames,
+        selectedTrainNameFilter: viewModel.selectedTrainNameFilter,
+        isLoading: viewModel.isLoadingTrains,
+        isTrainSelected: { viewModel.isTrainSelected($0) },
+        onTrainTapped: { viewModel.toggleTrainSelection($0) },
+        onTrainSelected: {
+          handleTrainSelectionAction()
+        },
+        onFilterChanged: { viewModel.selectedTrainNameFilter = $0 },
+        selectedTrainItem: viewModel.selectedTrainItem,
+        isSearchBarOverContent: $isSearchBarOverContent
+      )
+      
+      floatingSearchBar
+    }
   }
 
   // MARK: - Train Selection Handlers
@@ -346,5 +387,7 @@ struct AddTrainView: View {
   ]
 
   return AddTrainView()
+    .environment(Router.previewRouter())
     .environment(store)
+    .environment(\.showToast, .preview)
 }
