@@ -71,7 +71,7 @@ struct TrainResultsView: View {
     }
     .listStyle(.plain)
     .safeAreaInset(edge: .top) {
-      Color.clear.frame(height: 50)
+      Color.clear.frame(height: 35)
     }
     .coordinateSpace(name: "listScroll")
     .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in

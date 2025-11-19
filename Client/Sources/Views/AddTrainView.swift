@@ -13,21 +13,38 @@ struct AddTrainView: View {
   @Environment(TrainMapStore.self) private var store
   @Environment(\.dismiss) private var dismiss
   @Environment(\.showToast) private var showToast
-
+  
   @State private var viewModel: ViewModel = ViewModel()
   @State private var isSearchBarOverContent: Bool = false
   @State private var isPresentingAlarmConfiguration: Bool = false
-
+  @State private var headerHeight: CGFloat = 0
+  
   private let logger = Logger(subsystem: "kreta", category: "AddTrainView")
-
+  
   // MARK: - Body
-
+  
   var body: some View {
-    VStack(spacing: 0) {
-      headerView()
-      contentView()
+    ZStack(alignment: .top) {
+      VStack(spacing: 0) {
+        headerView()
+          .background(
+            GeometryReader { proxy in
+              Color.clear
+                .onAppear {
+                  headerHeight = proxy.size.height
+                }
+                .onChange(of: proxy.size.height) { newValue in
+                  headerHeight = newValue
+                }
+            }
+          )
+        
+        contentView()
+      }
+      
+      floatingSearchBar
+        .padding(.top, headerHeight)
     }
-    .padding(.top)
     .task {
       viewModel.bootstrap(allStations: store.stations)
     }
@@ -36,22 +53,23 @@ struct AddTrainView: View {
       AlarmConfigurationSheetContainer()
     }
   }
-
+  
+  
   // MARK: - Header View
-
+  
   private func headerView() -> some View {
     VStack(alignment: .leading, spacing: 8) {
       headerTitleSection
     }
     .padding()
   }
-
+  
   private var headerTitleSection: some View {
     HStack {
       VStack(alignment: .leading) {
         Text("Tambah Perjalanan Kereta")
           .font(.title2.weight(.bold))
-
+        
         StepTitleView(
           text: viewModel.showCalendar ? "Pilih Tanggal" : viewModel.stepTitle,
           showCalendar: viewModel.showCalendar
@@ -60,13 +78,13 @@ struct AddTrainView: View {
         .foregroundStyle(.secondary)
         .frame(height: 2, alignment: .leading)
       }
-
+      
       Spacer()
-
+      
       closeButton
     }
   }
-
+  
   private var closeButton: some View {
     Button {
       dismiss()
@@ -79,7 +97,7 @@ struct AddTrainView: View {
     .foregroundStyle(.backgroundSecondary)
     .glassEffect(.regular.tint(.backgroundSecondary))
   }
-
+  
   private var searchBarSection: some View {
     AnimatedSearchBar(
       step: viewModel.currentStep,
@@ -125,9 +143,9 @@ struct AddTrainView: View {
     }
     .allowsHitTesting(true)
   }
-
+  
   // MARK: - Content View
-
+  
   @ViewBuilder
   private func contentView() -> some View {
     switch viewModel.currentStep {
@@ -139,30 +157,26 @@ struct AddTrainView: View {
       trainResultsView()
     }
   }
-
+  
   // MARK: - Station List View
-
+  
   private func stationListView() -> some View {
-    ZStack(alignment: .top) {
-      List(viewModel.filteredStations) { station in
-        StationRow(station: station)
-          .onTapGesture {
-            viewModel.selectStation(station)
-          }
-          .listRowBackground(Color.clear)
-      }
-      .listStyle(.plain)
-      .safeAreaInset(edge: .top) {
-        Color.clear.frame(height: 40)
-      }
-      .overlay {
-        stationListOverlay
-      }
-      
-      floatingSearchBar
+    List(viewModel.filteredStations) { station in
+      StationRow(station: station)
+        .onTapGesture {
+          viewModel.selectStation(station)
+        }
+        .listRowBackground(Color.clear)
+    }
+    .listStyle(.plain)
+    .safeAreaInset(edge: .top) {
+      Color.clear.frame(height: 44)
+    }
+    .overlay {
+      stationListOverlay
     }
   }
-
+  
   @ViewBuilder
   private var stationListOverlay: some View {
     if viewModel.isLoadingConnections {
@@ -174,22 +188,18 @@ struct AddTrainView: View {
       ContentUnavailableView.search(text: viewModel.searchText)
     }
   }
-
+  
   // MARK: - Date Selection View
-
+  
   @ViewBuilder
   private func dateSelectionView() -> some View {
-    ZStack(alignment: .top) {
-      if viewModel.showCalendar {
-        calendarView()
-      } else {
-        datePickerView()
-      }
-      
-      floatingSearchBar
+    if viewModel.showCalendar {
+      calendarView()
+    } else {
+      datePickerView()
     }
   }
-
+  
   private func datePickerView() -> some View {
     ScrollView {
       VStack(spacing: 16) {
@@ -200,10 +210,10 @@ struct AddTrainView: View {
         customDateOption
       }
       .padding()
-      .padding(.top, 48)
+      .padding(.top, 52)
     }
   }
-
+  
   private var todayOption: some View {
     DateOptionRow(
       icon: "calendar.badge.clock",
@@ -214,7 +224,7 @@ struct AddTrainView: View {
       viewModel.selectDate(Date())
     }
   }
-
+  
   private var tomorrowOption: some View {
     DateOptionRow(
       icon: "calendar",
@@ -227,7 +237,7 @@ struct AddTrainView: View {
       }
     }
   }
-
+  
   private var customDateOption: some View {
     DateOptionRow(
       icon: "calendar.badge.plus",
@@ -238,15 +248,15 @@ struct AddTrainView: View {
       viewModel.showCalendarView()
     }
   }
-
+  
   private var tomorrowDate: Date? {
     Calendar.current.date(byAdding: .day, value: 1, to: Date())
   }
-
+  
   private var tomorrowDateString: String {
     (tomorrowDate ?? Date()).formatted(.dateTime.weekday(.wide).day().month(.wide))
   }
-
+  
   private func calendarView() -> some View {
     CalendarView(
       selectedDate: Binding(
@@ -261,32 +271,28 @@ struct AddTrainView: View {
       }
     )
   }
-
+  
   // MARK: - Train Results View
-
+  
   private func trainResultsView() -> some View {
-    ZStack(alignment: .top) {
-      TrainResultsView(
-        trains: viewModel.searchableTrains,
-        uniqueTrainNames: viewModel.uniqueTrainNames,
-        selectedTrainNameFilter: viewModel.selectedTrainNameFilter,
-        isLoading: viewModel.isLoadingTrains,
-        isTrainSelected: { viewModel.isTrainSelected($0) },
-        onTrainTapped: { viewModel.toggleTrainSelection($0) },
-        onTrainSelected: {
-          handleTrainSelectionAction()
-        },
-        onFilterChanged: { viewModel.selectedTrainNameFilter = $0 },
-        selectedTrainItem: viewModel.selectedTrainItem,
-        isSearchBarOverContent: $isSearchBarOverContent
-      )
-      
-      floatingSearchBar
-    }
+    TrainResultsView(
+      trains: viewModel.searchableTrains,
+      uniqueTrainNames: viewModel.uniqueTrainNames,
+      selectedTrainNameFilter: viewModel.selectedTrainNameFilter,
+      isLoading: viewModel.isLoadingTrains,
+      isTrainSelected: { viewModel.isTrainSelected($0) },
+      onTrainTapped: { viewModel.toggleTrainSelection($0) },
+      onTrainSelected: {
+        handleTrainSelectionAction()
+      },
+      onFilterChanged: { viewModel.selectedTrainNameFilter = $0 },
+      selectedTrainItem: viewModel.selectedTrainItem,
+      isSearchBarOverContent: $isSearchBarOverContent
+    )
   }
-
+  
   // MARK: - Train Selection Handlers
-
+  
   private func handleTrainSelectionAction() {
     guard let selectedItem = viewModel.selectedTrainItem else { return }
     Task {
@@ -296,13 +302,13 @@ struct AddTrainView: View {
       await handleTrainSelection(projected)
     }
   }
-
+  
   private func handleTrainSelection(_ train: ProjectedTrain) async {
     guard let journeyData = viewModel.trainJourneyData[train.id] else {
       logger.error("No journeyData found for train \(train.id, privacy: .public)")
       return
     }
-
+    
     if !AlarmPreferences.shared.hasCompletedInitialSetup {
       logger.info("Alarm setup incomplete. Storing pending train \(train.id, privacy: .public)")
       // Store pending data in store for alarm configuration sheet
@@ -320,7 +326,7 @@ struct AddTrainView: View {
       )
     }
   }
-
+  
   private func proceedWithTrainSelection(
     train: ProjectedTrain,
     journeyData: TrainJourneyData,
@@ -347,7 +353,7 @@ struct AddTrainView: View {
 
 #Preview("Add Train View") {
   let store = TrainMapStore.preview
-
+  
   store.stations = [
     Station(
       id: "GMR",
@@ -385,7 +391,7 @@ struct AddTrainView: View {
       city: "Surabaya"
     ),
   ]
-
+  
   return AddTrainView()
     .environment(Router.previewRouter())
     .environment(store)
