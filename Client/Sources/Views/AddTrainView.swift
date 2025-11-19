@@ -45,6 +45,7 @@ struct AddTrainView: View {
       floatingSearchBar
         .padding(.top, headerHeight)
     }
+    .padding(.top, 8)
     .task {
       viewModel.bootstrap(allStations: store.stations)
     }
