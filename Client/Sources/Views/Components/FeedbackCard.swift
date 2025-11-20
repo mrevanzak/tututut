@@ -29,9 +29,12 @@ struct FeedbackCard: View {
     VStack(spacing: 16) {
       HStack(alignment: .top, spacing: 16) {
         // Title
-        Text(item.description)
-          .font(.headline)
-          .lineLimit(nil)
+          Text(item.description)
+            .font(.headline)
+            .fixedSize(horizontal: false, vertical: true)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
 
         Spacer()
 
