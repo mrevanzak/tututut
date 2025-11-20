@@ -107,6 +107,12 @@ extension EnvironmentValues {
   }
 }
 
+extension ShowToastAction {
+  static let preview = ShowToastAction { message, type in
+    print("🔔 [\(type)] \(message)")
+  }
+}
+
 extension View {
   /// Add toast capability to any view
   func withToast() -> some View {

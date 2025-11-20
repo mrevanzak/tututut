@@ -53,7 +53,8 @@ struct AnimatedSearchBar: View {
       if departureStation != nil && step != .departure {
         Image(systemName: "arrow.right")
           .font(.caption)
-          .foregroundStyle(.tertiary)
+          .fontWeight(.bold)
+          .foregroundStyle(.textSecondary)
           .transition(.scale(scale: 0.5).combined(with: .opacity))
       }
 
@@ -145,7 +146,7 @@ struct AnimatedSearchBar: View {
     }
     .padding(.horizontal, 8)
     .padding(.vertical, 10)
-    .background(.componentFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .glassEffect()
     .frame(maxWidth: .infinity)
   }
 
@@ -163,7 +164,7 @@ struct AnimatedSearchBar: View {
     }
     .padding(.horizontal, 8)
     .padding(.vertical, 10)
-    .background(.componentFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .glassEffect()
     .frame(maxWidth: .infinity)
   }
 
@@ -178,7 +179,7 @@ struct AnimatedSearchBar: View {
     .frame(minWidth: 44)
     .padding(.horizontal, 8)
     .padding(.vertical, 10)
-    .background(.componentFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .glassEffect()
     .matchedGeometryEffect(id: id, in: animation)
     .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     .hoverEffect(.highlight)
@@ -196,7 +197,7 @@ struct AnimatedSearchBar: View {
     .frame(maxWidth: .infinity, alignment: .center)
     .padding(.horizontal, 8)
     .padding(.vertical, 10)
-    .background(.componentFill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .glassEffect()
   }
 }
 
