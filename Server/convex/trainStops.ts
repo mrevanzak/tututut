@@ -224,6 +224,43 @@ export const getTrainsAtStation = query({
       .withIndex("by_stationId", (q) => q.eq("stationId", stationId))
       .collect();
 
+    if (stops.length === 0) return [];
+
+    // Preload all origin + destination station codes
+    const originIds = [...new Set(stops.map((s) => s.routeOriginId))];
+    const destIds = [...new Set(stops.map((s) => s.routeDestinationId))];
+
+    const [originStations, destinationStations] = await Promise.all([
+      Promise.all(
+        originIds.map((id) =>
+          ctx.db
+            .query("stations")
+            .withIndex("by_customId", (q) => q.eq("id", id))
+            .unique()
+        )
+      ),
+      Promise.all(
+        destIds.map((id) =>
+          ctx.db
+            .query("stations")
+            .withIndex("by_customId", (q) => q.eq("id", id))
+            .unique()
+        )
+      ),
+    ]);
+
+    const originCodeMap = new Map(
+      originStations
+        .filter(Boolean)
+        .map((s) => [s.id, s.code])
+    );
+
+    const destinationCodeMap = new Map(
+      destinationStations
+        .filter(Boolean)
+        .map((s) => [s.id, s.code])
+    );
+
     // Sort by departure time (or arrival if no departure)
     const sortedStops = stops.sort((a, b) => {
       const timeA = a.departureTime || a.arrivalTime || "";
@@ -242,10 +279,16 @@ export const getTrainsAtStation = query({
       arrivalTime: stop.arrivalTime,
       departureTime: stop.departureTime,
       stopSequence: stop.stopSequence,
+
+      // Existing
       origin: stop.routeOriginName,
       destination: stop.routeDestinationName,
       isOrigin: stop.isOrigin,
       isDestination: stop.isDestination,
+
+      // ➕ Added: station codes
+      originStationCode: originCodeMap.get(stop.routeOriginId),
+      destinationStationCode: destinationCodeMap.get(stop.routeDestinationId),
     }));
   },
 });

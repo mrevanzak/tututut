@@ -15,6 +15,8 @@ struct GroupedTrainSchedule: Identifiable {
   let trainName: String
   let origin: String
   let destination: String
+  let originCode: String
+  let destinationCode: String
   let schedules: [TrainStopService.TrainAtStation]
   
   var nextDeparture: TrainStopService.TrainAtStation? {
@@ -79,24 +81,16 @@ struct StationScheduleView: View {
     HStack {
       VStack(alignment: .leading, spacing: 4) {
         if let station = mapStore.selectedStationForSchedule {
-          Text(station.name)
+          Text("Stasiun")
             .font(.title2.bold())
-            .foregroundStyle(.primary)
           
-          HStack(spacing: 8) {
-            Text(station.code)
-              .font(.subheadline)
-              .fontWeight(.medium)
-              .foregroundStyle(.secondary)
-            
-            if let city = station.city {
-              Text("•")
-                .foregroundStyle(.secondary)
-              Text(city)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            }
-          }
+          Text("\(station.name) (\(station.code))")
+            .font(.title2.bold())
+            .foregroundStyle(.highlight)
+          
+          Text("Jadwal kereta yang melintas di \(station.code)")
+            .font(.subheadline)
+            .foregroundStyle(.sublime)
         } else {
           Text("Jadwal Stasiun")
             .font(.title2.bold())
@@ -110,10 +104,13 @@ struct StationScheduleView: View {
         dismiss()
       } label: {
         Image(systemName: "xmark.circle.fill")
-          .font(.title2)
-          .foregroundStyle(.secondary)
+          .symbolRenderingMode(.palette)
+          .foregroundStyle(.textSecondary, .primary)
+          .font(.largeTitle)
       }
-      .buttonStyle(.plain)
+      .frame(width: 44, height: 44)
+      .foregroundStyle(.backgroundSecondary)
+      .glassEffect(.regular.tint(.backgroundSecondary))
     }
     .padding()
     .background(.backgroundPrimary)
@@ -211,7 +208,8 @@ struct StationScheduleView: View {
     defer { isLoading = false }
     
     do {
-      trains = try await trainStopService.getTrainsAtStation(stationId: stationId)
+      trains = try await trainStopService.getTrainsAtStation(stationId: stationId).filter { !$0.isDestination }
+      
       updateGroupedTrains()
     } catch {
       showToast("Gagal memuat jadwal kereta")
@@ -233,6 +231,8 @@ struct StationScheduleView: View {
         trainName: first.trainName,
         origin: first.origin,
         destination: first.destination,
+        originCode: first.originStationCode,
+        destinationCode: first.destinationStationCode,
         schedules: schedules.sorted { (a, b) in
           let timeA = a.departureTime ?? a.arrivalTime ?? ""
           let timeB = b.departureTime ?? b.arrivalTime ?? ""
@@ -245,7 +245,7 @@ struct StationScheduleView: View {
         return a.trainName < b.trainName
       }
       return a.origin < b.origin
-//      return "\(a.origin)-\(a.destination)" < "\(b.origin)-\(b.destination)"
+      //      return "\(a.origin)-\(a.destination)" < "\(b.origin)-\(b.destination)"
     }
   }
   
@@ -413,64 +413,68 @@ private struct TrainGroupCard: View {
     VStack(spacing: 0) {
       // Header - always visible
       Button(action: onToggleExpand) {
-        HStack(spacing: 12) {
+        VStack(spacing: 12) {
           // Train icon
           
           VStack(alignment: .leading, spacing: 4) {
             // Train name and code
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
               Text(group.trainName)
-                .font(.headline)
-                .foregroundStyle(.primary)
+                .font(.title3.bold())
+                .foregroundStyle(.textSecondary)
               
               Text(group.trainCode)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
+                .font(.callout)
+                .foregroundStyle(.sublime)
+              
+              Spacer()
+              
+              // Expand indicator
+              VStack {
+                Spacer() // pushes image down
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                  .font(.subheadline.weight(.semibold))
+                  .foregroundStyle(.tertiary)
+              }
             }
             
             // Full route: Origin → Destination
-            HStack(spacing: 4) {
-              Text(group.origin)
+            HStack(alignment: .lastTextBaseline, spacing: 4) {
+              Text(group.originCode)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.highlight)
                 .lineLimit(1)
               
-              Image(systemName: "arrow.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-              
-              Text(group.destination)
+              Image(systemName: "arrow.right.square.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.backgroundPrimary, .highlight)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            }
-            
-            // Schedule count
-            HStack(spacing: 4) {
-              Image(systemName: "clock")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
               
-              Text("\(group.schedules.count) jadwal")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+              Text(group.destinationCode)
+                .font(.subheadline)
+                .foregroundStyle(.highlight)
+                .lineLimit(1)
               
               if let next = group.nextDeparture?.departureTime {
-                Text("• Berikutnya: \(formatTime(next))")
-                  .font(.caption.weight(.medium))
-                  .foregroundStyle(.highlight)
+                Text("Berikutnya: \(formatTime(next))")
+                  .font(.caption2)
+                  .foregroundStyle(.sublime)
+              }
+              
+              Spacer()
+              
+              // Schedule Count
+              HStack(spacing: 2) {
+                Image(systemName: "tram.circle.fill")
+                  .font(.caption2)
+                  .foregroundStyle(.sublime)
+  
+                Text("\(group.schedules.count) jadwal")
+                  .font(.caption2)
+                  .foregroundStyle(.sublime)
               }
             }
-            .padding(.top, 2)
           }
-          
-          Spacer()
-          
-          // Expand indicator
-          Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.tertiary)
         }
         .padding(16)
       }

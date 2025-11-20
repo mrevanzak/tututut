@@ -120,6 +120,8 @@ final class TrainStopService {
     let destination: String
     let isOrigin: Bool
     let isDestination: Bool
+    let originStationCode: String
+    let destinationStationCode: String
 
     var id: String { trainId }
 
