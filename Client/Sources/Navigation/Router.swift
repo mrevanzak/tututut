@@ -130,3 +130,4 @@ extension Router: CustomDebugStringConvertible {
 extension Notification.Name {
   static let routerActionRequested = Notification.Name("routerActionRequested")
 }
+

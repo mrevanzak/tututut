@@ -281,7 +281,8 @@ extension StationTimelineItem {
     let components = timeString.split(separator: ":")
     guard components.count >= 2,
       let hour = Int(components[0]),
-      let minute = Int(components[1])
+      let minute = Int(components[1]),
+      let second = Int(components[2])
     else {
       return nil
     }
@@ -289,6 +290,6 @@ extension StationTimelineItem {
     let calendar = Calendar.current
     let startOfDay = calendar.startOfDay(for: date)
 
-    return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: startOfDay)
+    return calendar.date(bySettingHour: hour, minute: minute, second: second, of: startOfDay)
   }
 }

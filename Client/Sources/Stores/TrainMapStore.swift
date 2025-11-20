@@ -27,6 +27,9 @@ final class TrainMapStore {
   var routes: [Route] = []
   var lastUpdatedAt: String?
 
+  // Station selected for viewing schedule
+  var selectedStationForSchedule: Station?
+
   var selectedJourneyData: TrainJourneyData? {
     didSet {
       Task { await persistJourneyData() }
