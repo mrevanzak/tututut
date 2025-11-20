@@ -138,7 +138,7 @@ struct HomeScreen: View {
     if trainMapStore.selectedTrain != nil {
       return [.height(80), .height(240), .large]
     } else {
-      return [.fraction(0.35)]
+      return [.fraction(0.19)]
     }
   }
   
@@ -293,8 +293,27 @@ struct HomeScreen: View {
       } else {
         // Show "Perjalanan Kereta" only when no train is selected
         HStack(alignment: .center) {
-          Text("Perjalanan Kereta")
-            .font(.title2).bold()
+//          Text("Perjalanan Kereta")
+//            .font(.title2).bold()
+            Button {
+                router.navigate(to: .sheet(.addTrain))
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+
+                    Text("Cari Stasiun Keberangkatan")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+
+                    Spacer()
+                }
+                .frame(height: 44)
+                .padding(.horizontal)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+            }
+            .buttonStyle(.plain)
           Spacer()
           
           Menu {
@@ -376,25 +395,53 @@ struct HomeScreen: View {
             removal: .move(edge: .bottom).combined(with: .opacity)
           ))
       } else {
-        Button {
-          router.navigate(to: .sheet(.addTrain))
-        } label: {
-          RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(.backgroundSecondary)
-            .frame(maxWidth: .infinity)
-            .overlay(
-              VStack {
-                Image(systemName: "plus").font(.system(size: 56, weight: .bold))
-                Text("Tambah Perjalanan Kereta")
-                  .font(.subheadline)
-                  .foregroundStyle(.textSecondary)
-                Text("Mulai track perjalanan kereta di sini")
-                  .font(.caption)
-                  .foregroundStyle(.secondary)
+          VStack(alignment: .leading, spacing: 24) {
+
+              // SEARCH FIELD (replaces add train button)
+//              Button {
+//                  router.navigate(to: .sheet(.addTrain))
+//              } label: {
+//                  HStack(spacing: 10) {
+//                      Image(systemName: "magnifyingglass")
+//                          .foregroundColor(.gray)
+//
+//                      Text("Cari Stasiun Keberangkatan")
+//                          .foregroundColor(.gray)
+//
+//                      Spacer()
+//                  }
+//                  .padding()
+//                  //                  .frame(height: 44)
+//                  .background(.ultraThinMaterial)
+//                  .clipShape(RoundedRectangle(cornerRadius: 20))
+//              }
+//              .buttonStyle(.plain)
+
+              // Grey train icon + title + subtitle (UI only)
+              HStack(spacing: 12) {
+                  Image("LogoMono")
+                      .resizable()
+                      .scaledToFit()
+                      .frame(width: 60, height: 60)
+
+                  VStack(alignment: .leading, spacing: 4) {
+                      Text("Yuk, Naik Kereta")
+                          .font(.title3).bold()
+                          .foregroundColor(.sublime)
+
+                      Text("Tekan search untuk track perjalananmu")
+                          .foregroundColor(.sublime)
+                          .font(.callout)
+                  }
+                  
+                  Image("Arrow")
+                      .resizable()
+                      .scaledToFit()
+                      .frame(width: 50, height: 48)
               }
-            )
-        }
-        .buttonStyle(.plain)
+              .padding(.horizontal, 4)
+              .padding(.vertical)
+          }
         .transition(
           .asymmetric(
             insertion: .move(edge: .bottom).combined(with: .opacity),
@@ -403,7 +450,7 @@ struct HomeScreen: View {
       }
     }
     .padding(.horizontal, 20)
-    .padding(.top, 16)
+    .padding(.top, 12)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
   }
   
@@ -471,3 +518,4 @@ struct HomeScreen: View {
   }
   
 }
+
