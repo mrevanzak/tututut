@@ -15,6 +15,8 @@ struct GroupedTrainSchedule: Identifiable {
   let trainName: String
   let origin: String
   let destination: String
+  let originCode: String
+  let destinationCode: String
   let schedules: [TrainStopService.TrainAtStation]
   
   var nextDeparture: TrainStopService.TrainAtStation? {
@@ -51,52 +53,105 @@ struct StationScheduleView: View {
   
   @State private var trains: [TrainStopService.TrainAtStation] = []
   @State private var groupedTrains: [GroupedTrainSchedule] = []
+  @State private var filteredGroupedTrains: [GroupedTrainSchedule] = []
   @State private var isLoading: Bool = false
   @State private var expandedGroups: Set<String> = []
+  @State private var selectedTrain: String = "Semua Kereta"
+  
+  @State var uniqueTrainNames: [String] = []
   
   private let trainStopService = TrainStopService()
   private let journeyService = JourneyService()
   
   var body: some View {
-    VStack(spacing: 0) {
-      headerView
-      
+    ZStack {
       if let station = mapStore.selectedStationForSchedule {
         contentView(for: station)
       } else {
         emptyStateView
       }
     }
+    .safeAreaInset(edge: .top) {
+      VStack(spacing: 0) {
+        headerView
+
+        // Picker directly under the header
+        HStack {
+          Spacer()
+          customPickerLabel
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+      }
+      .background(
+        LinearGradient(
+          colors: [
+            Color.backgroundPrimary,
+            Color.backgroundPrimary.opacity(1),
+            Color.backgroundPrimary.opacity(0.95),
+            Color.backgroundPrimary.opacity(0),
+          ],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+    }
+    .padding(.top, 12)
     .background(.backgroundPrimary)
     .task {
       await loadTrainSchedule()
     }
+    .onChange(of: selectedTrain) {
+      applyTrainFilter()
+    }
   }
-  
+
   // MARK: - Header View
+  
+  private var customPickerLabel: some View {
+    ZStack {
+      // Visual label
+      HStack(spacing: 8) {
+        Text(selectedTrain)
+          .foregroundStyle(.primary)
+        
+        Image(systemName: "chevron.down")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(.secondary)
+      }
+      .frame(alignment: .leading)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+
+      .glassEffect()
+      
+      // Invisible picker for interaction
+      Picker("", selection: $selectedTrain) {
+        ForEach(uniqueTrainNames, id: \.self) { trainName in
+          Text(trainName).tag(trainName)
+        }
+      }
+      .pickerStyle(.menu)
+      .labelsHidden()
+      .opacity(0.02)
+      .contentShape(Rectangle())
+    }
+  }
   
   private var headerView: some View {
     HStack {
       VStack(alignment: .leading, spacing: 4) {
         if let station = mapStore.selectedStationForSchedule {
-          Text(station.name)
+          Text("Stasiun")
             .font(.title2.bold())
-            .foregroundStyle(.primary)
           
-          HStack(spacing: 8) {
-            Text(station.code)
-              .font(.subheadline)
-              .fontWeight(.medium)
-              .foregroundStyle(.secondary)
-            
-            if let city = station.city {
-              Text("•")
-                .foregroundStyle(.secondary)
-              Text(city)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            }
-          }
+          Text("\(station.name) (\(station.code))")
+            .font(.title2.bold())
+            .foregroundStyle(.highlight)
+          
+          Text("Jadwal kereta yang melintas di \(station.code)")
+            .font(.subheadline)
+            .foregroundStyle(.sublime)
         } else {
           Text("Jadwal Stasiun")
             .font(.title2.bold())
@@ -110,13 +165,16 @@ struct StationScheduleView: View {
         dismiss()
       } label: {
         Image(systemName: "xmark.circle.fill")
-          .font(.title2)
-          .foregroundStyle(.secondary)
+          .symbolRenderingMode(.palette)
+          .foregroundStyle(.textSecondary, .primary)
+          .font(.largeTitle)
       }
-      .buttonStyle(.plain)
+      .frame(width: 44, height: 44)
+      .foregroundStyle(.backgroundSecondary)
+      .glassEffect(.regular.tint(.backgroundSecondary))
     }
     .padding()
-    .background(.backgroundPrimary)
+    
   }
   
   // MARK: - Content View
@@ -168,29 +226,45 @@ struct StationScheduleView: View {
   }
   
   private var trainGroupListView: some View {
-    ScrollView {
-      LazyVStack(spacing: 12) {
-        ForEach(groupedTrains) { group in
-          TrainGroupCard(
-            group: group,
-            isExpanded: expandedGroups.contains(group.id),
-            onToggleExpand: {
-              withAnimation(.spring(response: 0.3)) {
-                if expandedGroups.contains(group.id) {
-                  expandedGroups.remove(group.id)
-                } else {
-                  expandedGroups.insert(group.id)
+    ZStack(alignment: .bottom) {
+      ScrollView {
+        LazyVStack(spacing: 12) {
+          ForEach(filteredGroupedTrains) { group in
+            TrainGroupCard(
+              group: group,
+              isExpanded: expandedGroups.contains(group.id),
+              onToggleExpand: {
+                withAnimation(.spring(response: 0.3)) {
+                  if expandedGroups.contains(group.id) {
+                    expandedGroups.remove(group.id)
+                  } else {
+                    expandedGroups.insert(group.id)
+                  }
                 }
+              },
+              onSelectSchedule: { train in
+                handleTrainSelection(train)
               }
-            },
-            onSelectSchedule: { train in
-              handleTrainSelection(train)
-            }
-          )
+            )
+          }
         }
+        .padding()
+        .padding(.top, 116)
       }
-      .padding()
+      
+      LinearGradient(
+        colors: [
+          Color.backgroundPrimary.opacity(0),
+          Color.backgroundPrimary.opacity(0.7),
+          Color.backgroundPrimary.opacity(0.9),
+          Color.backgroundPrimary,
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+      .frame(height: 50)
     }
+    .ignoresSafeArea()
   }
   
   private var emptyStateView: some View {
@@ -211,8 +285,13 @@ struct StationScheduleView: View {
     defer { isLoading = false }
     
     do {
-      trains = try await trainStopService.getTrainsAtStation(stationId: stationId)
+      trains = try await trainStopService.getTrainsAtStation(stationId: stationId).filter { !$0.isDestination }
+      
+      let trainNames = Set(trains.map { $0.trainName }).sorted()
+      uniqueTrainNames = ["Semua Kereta"] + trainNames
+      
       updateGroupedTrains()
+      applyTrainFilter()
     } catch {
       showToast("Gagal memuat jadwal kereta")
       print("Failed to load train schedule: \(error)")
@@ -233,6 +312,8 @@ struct StationScheduleView: View {
         trainName: first.trainName,
         origin: first.origin,
         destination: first.destination,
+        originCode: first.originStationCode,
+        destinationCode: first.destinationStationCode,
         schedules: schedules.sorted { (a, b) in
           let timeA = a.departureTime ?? a.arrivalTime ?? ""
           let timeB = b.departureTime ?? b.arrivalTime ?? ""
@@ -245,7 +326,15 @@ struct StationScheduleView: View {
         return a.trainName < b.trainName
       }
       return a.origin < b.origin
-//      return "\(a.origin)-\(a.destination)" < "\(b.origin)-\(b.destination)"
+      //      return "\(a.origin)-\(a.destination)" < "\(b.origin)-\(b.destination)"
+    }
+  }
+  
+  private func applyTrainFilter() {
+    if selectedTrain == "Semua Kereta" {
+      filteredGroupedTrains = groupedTrains
+    } else {
+      filteredGroupedTrains = groupedTrains.filter { $0.trainName == selectedTrain }
     }
   }
   
@@ -413,64 +502,70 @@ private struct TrainGroupCard: View {
     VStack(spacing: 0) {
       // Header - always visible
       Button(action: onToggleExpand) {
-        HStack(spacing: 12) {
+        VStack(spacing: 12) {
           // Train icon
           
           VStack(alignment: .leading, spacing: 4) {
             // Train name and code
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
               Text(group.trainName)
-                .font(.headline)
-                .foregroundStyle(.primary)
+                .font(.title3.bold())
+                .foregroundStyle(.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
               
               Text(group.trainCode)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
+                .font(.callout)
+                .foregroundStyle(.sublime)
+              
+              Spacer()
+              
+              // Expand indicator
+              VStack {
+                Spacer()
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                  .font(.subheadline.weight(.semibold))
+                  .foregroundStyle(.tertiary)
+              }
             }
             
             // Full route: Origin → Destination
-            HStack(spacing: 4) {
-              Text(group.origin)
+            HStack(alignment: .lastTextBaseline, spacing: 4) {
+              Text(group.originCode)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.highlight)
                 .lineLimit(1)
               
-              Image(systemName: "arrow.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-              
-              Text(group.destination)
+              Image(systemName: "arrow.right.square.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.backgroundPrimary, .highlight)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            }
-            
-            // Schedule count
-            HStack(spacing: 4) {
-              Image(systemName: "clock")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
               
-              Text("\(group.schedules.count) jadwal")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+              Text(group.destinationCode)
+                .font(.subheadline)
+                .foregroundStyle(.highlight)
+                .lineLimit(1)
               
               if let next = group.nextDeparture?.departureTime {
-                Text("• Berikutnya: \(formatTime(next))")
-                  .font(.caption.weight(.medium))
-                  .foregroundStyle(.highlight)
+                Text("Berikutnya: \(formatTime(next))")
+                  .font(.caption2)
+                  .foregroundStyle(.sublime)
+              }
+              
+              Spacer()
+              
+              // Schedule Count
+              HStack(spacing: 2) {
+                Image(systemName: "tram.circle.fill")
+                  .font(.caption2)
+                  .foregroundStyle(.sublime)
+                
+                Text("\(group.schedules.count) jadwal")
+                  .font(.caption2)
+                  .foregroundStyle(.sublime)
               }
             }
-            .padding(.top, 2)
           }
-          
-          Spacer()
-          
-          // Expand indicator
-          Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.tertiary)
         }
         .padding(16)
       }
@@ -480,6 +575,7 @@ private struct TrainGroupCard: View {
       if isExpanded {
         Divider()
           .padding(.horizontal, 16)
+          .foregroundStyle(.sublime)
         
         VStack(spacing: 0) {
           ForEach(Array(group.schedules.enumerated()), id: \.element.id) { index, schedule in
@@ -488,6 +584,12 @@ private struct TrainGroupCard: View {
               isLast: index == group.schedules.count - 1,
               onTap: { onSelectSchedule(schedule) }
             )
+            
+            if (index != group.schedules.count - 1) {
+              Divider()
+                .padding(.horizontal)
+                .foregroundStyle(.sublime)
+            }
           }
         }
         .padding(.vertical, 8)
@@ -495,6 +597,12 @@ private struct TrainGroupCard: View {
     }
     .background(Color.backgroundSecondary)
     .cornerRadius(12)
+    .animation(
+      isExpanded
+      ? .interpolatingSpring(stiffness: 250, damping: 20)
+      : .easeOut(duration: 0.18),
+      value: isExpanded
+    )
   }
   
   private func formatTime(_ timeString: String) -> String {
@@ -505,6 +613,7 @@ private struct TrainGroupCard: View {
     return timeString
   }
 }
+
 
 // MARK: - Schedule Time Row
 
@@ -517,68 +626,28 @@ private struct ScheduleTimeRow: View {
   
   var body: some View {
     Button(action: onTap) {
-      VStack(spacing: 0) {
-        HStack(spacing: 12) {
-          // Time badge
-          VStack(spacing: 2) {
-            if let departureTime = schedule.departureTime {
-              Text(formatTime(departureTime))
-                .font(.system(.body, design: .rounded).monospacedDigit().weight(.semibold))
-                .foregroundStyle(isPast ? .tertiary : .primary)
-            }
+      HStack {
+        VStack(alignment: .leading, spacing: 4) {
+          if let departureTime = schedule.departureTime {
+            Text(formatTime(departureTime))
             
-            Text(schedule.isOrigin ? "Awal" : schedule.isDestination ? "Akhir" : "Berhenti")
+            Text(isPast ? "Sudah Lewat" : "Tap Untuk Melacak")
               .font(.caption2)
-              .foregroundStyle(.tertiary)
-          }
-          .frame(width: 80, alignment: .leading)
-          
-          // Time indicator
-          VStack(spacing: 4) {
-            Circle()
-              .fill(isPast ? Color.gray.opacity(0.3) : Color.highlight)
-              .frame(width: 12, height: 12)
-            
-            if !isLast {
-              Rectangle()
-                .fill(Color.gray.opacity(0.2))
-                .frame(width: 2)
-                .frame(maxHeight: .infinity)
-            }
-          }
-          .frame(height: isLast ? 12 : 50)
-          
-          // Details
-          VStack(alignment: .leading, spacing: 4) {
-            if let arrivalTime = schedule.arrivalTime,
-               schedule.arrivalTime != schedule.departureTime {
-              Text("Tiba: \(formatTime(arrivalTime))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            
-            if isPast {
-              Text("Telah berangkat")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-            } else {
-              Text("Tap untuk lacak")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.highlight)
-            }
-          }
-          
-          Spacer()
-          
-          if !isPast {
-            Image(systemName: "arrow.right.circle.fill")
-              .font(.title3)
-              .foregroundStyle(.highlight)
+              .if(!isPast) { view in
+                view.foregroundStyle(.highlight)
+              }
           }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        Spacer()
+        
+        Image(systemName: "chevron.right")
+          .font(.caption2)
+          .if(!isPast) { view in
+            view.foregroundStyle(.highlight)
+          }
       }
+      .padding()
+      .padding(.horizontal, 14)
     }
     .buttonStyle(.plain)
     .disabled(isPast)
@@ -622,87 +691,6 @@ private struct ScheduleTimeRow: View {
     }
   }
   
-}
-
-// MARK: - Train Schedule Row (Legacy - kept for reference)
-
-private struct TrainScheduleRow: View {
-  let train: TrainStopService.TrainAtStation
-  let isSelected: Bool
-  let onTap: () -> Void
-  
-  var body: some View {
-    Button(action: onTap) {
-      VStack(spacing: 0) {
-        HStack(alignment: .top, spacing: 12) {
-          // Train icon
-          ZStack {
-            Circle()
-              .fill(Color.highlight.opacity(0.1))
-              .frame(width: 48, height: 48)
-            
-            Image(systemName: "tram.fill")
-              .font(.title3)
-              .foregroundStyle(.highlight)
-          }
-          
-          VStack(alignment: .leading, spacing: 4) {
-            // Train name and code
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-              Text(train.trainName)
-                .font(.headline)
-                .foregroundStyle(.primary)
-              
-              Text(train.trainCode)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
-            }
-            
-            // Route
-            HStack(spacing: 4) {
-              Text(train.origin)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-              
-              Image(systemName: "arrow.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-              
-              Text(train.destination)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            }
-            
-            // Time information
-            HStack(spacing: 16) {
-              if let arrivalTime = train.arrivalTime {
-                TimeLabel(label: "Tiba", time: arrivalTime)
-              }
-              
-              if let departureTime = train.departureTime {
-                TimeLabel(label: "Berangkat", time: departureTime)
-              }
-            }
-            .padding(.top, 4)
-          }
-          
-          Spacer()
-          
-          // Chevron indicator
-          Image(systemName: "chevron.right")
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.tertiary)
-        }
-        .padding(16)
-      }
-      .background(isSelected ? Color.highlight.opacity(0.05) : Color.backgroundSecondary)
-      .cornerRadius(12)
-    }
-    .buttonStyle(.plain)
-  }
 }
 
 // MARK: - Time Label
