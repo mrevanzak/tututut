@@ -249,3 +249,84 @@ export const getTrainsAtStation = query({
     }));
   },
 });
+
+/**
+ * Get all stations connected to a given station
+ * Use case: Find where you can travel from a specific station
+ * 
+ * A station is considered "connected" if there is at least one train
+ * that stops at both the queried station and the returned station.
+ */
+export const getConnectedStations = query({
+  args: {
+    stationId: v.string(),
+  },
+  handler: async (ctx, { stationId }) => {
+    // Get all trains that stop at the queried station
+    const stopsAtStation = await ctx.db
+      .query("trainStops")
+      .withIndex("by_stationId", (q) => q.eq("stationId", stationId))
+      .collect();
+
+    if (stopsAtStation.length === 0) {
+      return [];
+    }
+
+    // Get unique train IDs that stop at this station
+    const trainIds = [...new Set(stopsAtStation.map((stop) => stop.trainId))];
+
+    // Get all stops for these trains
+    const allStopsForTrains = await Promise.all(
+      trainIds.map((trainId) =>
+        ctx.db
+          .query("trainStops")
+          .withIndex("by_trainId", (q) => q.eq("trainId", trainId))
+          .collect()
+      )
+    );
+
+    // Flatten and collect unique connected stations
+    const connectedStationsMap = new Map<
+      string,
+      {
+        stationId: string;
+        stationCode: string;
+        stationName: string;
+        city: string;
+        trainIds: string[];
+        trainCount: number;
+      }
+    >();
+
+    for (const stops of allStopsForTrains) {
+      for (const stop of stops) {
+        // Skip the queried station itself
+        if (stop.stationId === stationId) continue;
+
+        const existing = connectedStationsMap.get(stop.stationId);
+        if (existing) {
+          // Add train ID if not already included
+          if (!existing.trainIds.includes(stop.trainId)) {
+            existing.trainIds.push(stop.trainId);
+            existing.trainCount = existing.trainIds.length;
+          }
+        } else {
+          // Add new connected station
+          connectedStationsMap.set(stop.stationId, {
+            stationId: stop.stationId,
+            stationCode: stop.stationCode,
+            stationName: stop.stationName,
+            city: stop.city,
+            trainIds: [stop.trainId],
+            trainCount: 1,
+          });
+        }
+      }
+    }
+
+    // Convert to array and sort by train count (most connected first)
+    return Array.from(connectedStationsMap.values()).sort(
+      (a, b) => b.trainCount - a.trainCount
+    );
+  },
+});

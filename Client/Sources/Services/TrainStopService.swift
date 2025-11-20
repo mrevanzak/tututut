@@ -133,6 +133,17 @@ final class TrainStopService {
     }
   }
 
+  struct ConnectedStation: Codable, Sendable, Identifiable {
+    let stationId: String
+    let stationCode: String
+    let stationName: String
+    let city: String
+    let trainIds: [String]
+    let trainCount: Int
+
+    var id: String { stationId }
+  }
+
   // MARK: - Public Methods
 
   /// Get complete train schedule with all stops
@@ -192,6 +203,16 @@ final class TrainStopService {
       to: "trainStops:getTrainsAtStation",
       with: ["stationId": stationId],
       yielding: [TrainAtStation].self
+    )
+  }
+
+  /// Get all stations connected to a given station
+  /// Returns stations that share at least one train route with the queried station
+  func getConnectedStations(stationId: String) async throws -> [ConnectedStation] {
+    return try await convexClient.query(
+      to: "trainStops:getConnectedStations",
+      with: ["stationId": stationId],
+      yielding: [ConnectedStation].self
     )
   }
 }
