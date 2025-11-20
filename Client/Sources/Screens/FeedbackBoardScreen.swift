@@ -66,12 +66,11 @@ struct FeedbackBoardScreen: View {
             }
             .safeAreaInset(edge: .top) {
                 HStack {
-                    sortMenu
                     Spacer()
+                    sortMenu
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(.ultraThinMaterial)
             }
 
             // Input Section (patched)
@@ -152,12 +151,19 @@ struct FeedbackBoardScreen: View {
                 }
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: "arrow.up.arrow.down")
                 Text("\(sortOption.displayName) • \(arrowSymbol)")
                     .font(.subheadline)
             }
-            .foregroundStyle(.primary)
+            .frame(alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                .componentFill.opacity(0.1),
+                in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+            )
+            .glassEffect()
         }
     }
 
