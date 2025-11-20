@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "npx convex dev"
+    "dev": "npx convex dev",
+    "deploy": "npx convex deploy"
   },
   "devDependencies": {
     "@types/bun": "latest"
