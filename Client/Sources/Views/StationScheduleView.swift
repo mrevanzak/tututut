@@ -55,19 +55,31 @@ struct StationScheduleView: View {
   @State private var groupedTrains: [GroupedTrainSchedule] = []
   @State private var isLoading: Bool = false
   @State private var expandedGroups: Set<String> = []
+  @State private var headerHeight: CGFloat = 0
   
   private let trainStopService = TrainStopService()
   private let journeyService = JourneyService()
   
   var body: some View {
-    VStack(spacing: 0) {
-      headerView
+    ZStack(alignment: .top) {
       
       if let station = mapStore.selectedStationForSchedule {
         contentView(for: station)
       } else {
         emptyStateView
       }
+      headerView
+        .background(
+          GeometryReader { proxy in
+            Color.clear
+              .onAppear {
+                headerHeight = proxy.size.height
+              }
+              .onChange(of: proxy.size.height) { newValue in
+                headerHeight = newValue
+              }
+          }
+        )
     }
     .background(.backgroundPrimary)
     .task {
@@ -113,7 +125,18 @@ struct StationScheduleView: View {
       .glassEffect(.regular.tint(.backgroundSecondary))
     }
     .padding()
-    .background(.backgroundPrimary)
+    .background(
+      LinearGradient(
+        colors: [
+          Color.backgroundPrimary,
+          Color.backgroundPrimary.opacity(1),
+          Color.backgroundPrimary.opacity(0.95),
+          Color.backgroundPrimary.opacity(0),
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+    )
   }
   
   // MARK: - Content View
@@ -165,29 +188,45 @@ struct StationScheduleView: View {
   }
   
   private var trainGroupListView: some View {
-    ScrollView {
-      LazyVStack(spacing: 12) {
-        ForEach(groupedTrains) { group in
-          TrainGroupCard(
-            group: group,
-            isExpanded: expandedGroups.contains(group.id),
-            onToggleExpand: {
-              withAnimation(.spring(response: 0.3)) {
-                if expandedGroups.contains(group.id) {
-                  expandedGroups.remove(group.id)
-                } else {
-                  expandedGroups.insert(group.id)
+    ZStack(alignment: .bottom) {
+      ScrollView {
+        LazyVStack(spacing: 12) {
+          ForEach(groupedTrains) { group in
+            TrainGroupCard(
+              group: group,
+              isExpanded: expandedGroups.contains(group.id),
+              onToggleExpand: {
+                withAnimation(.spring(response: 0.3)) {
+                  if expandedGroups.contains(group.id) {
+                    expandedGroups.remove(group.id)
+                  } else {
+                    expandedGroups.insert(group.id)
+                  }
                 }
+              },
+              onSelectSchedule: { train in
+                handleTrainSelection(train)
               }
-            },
-            onSelectSchedule: { train in
-              handleTrainSelection(train)
-            }
-          )
+            )
+          }
         }
+        .padding()
+        .padding(.top, headerHeight - 4)
       }
-      .padding()
+      
+      LinearGradient(
+        colors: [
+          Color.backgroundPrimary.opacity(0),
+          Color.backgroundPrimary.opacity(0.7),
+          Color.backgroundPrimary.opacity(0.9),
+          Color.backgroundPrimary,
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+      .frame(height: 50)
     }
+    .ignoresSafeArea()
   }
   
   private var emptyStateView: some View {
@@ -422,6 +461,8 @@ private struct TrainGroupCard: View {
               Text(group.trainName)
                 .font(.title3.bold())
                 .foregroundStyle(.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
               
               Text(group.trainCode)
                 .font(.callout)
@@ -431,7 +472,7 @@ private struct TrainGroupCard: View {
               
               // Expand indicator
               VStack {
-                Spacer() // pushes image down
+                Spacer()
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                   .font(.subheadline.weight(.semibold))
                   .foregroundStyle(.tertiary)
@@ -484,6 +525,7 @@ private struct TrainGroupCard: View {
       if isExpanded {
         Divider()
           .padding(.horizontal, 16)
+          .foregroundStyle(.sublime)
         
         VStack(spacing: 0) {
           ForEach(Array(group.schedules.enumerated()), id: \.element.id) { index, schedule in
@@ -492,6 +534,12 @@ private struct TrainGroupCard: View {
               isLast: index == group.schedules.count - 1,
               onTap: { onSelectSchedule(schedule) }
             )
+            
+            if (index != group.schedules.count - 1) {
+              Divider()
+                .padding(.horizontal)
+                .foregroundStyle(.sublime)
+            }
           }
         }
         .padding(.vertical, 8)
@@ -499,6 +547,12 @@ private struct TrainGroupCard: View {
     }
     .background(Color.backgroundSecondary)
     .cornerRadius(12)
+    .animation(
+      isExpanded
+          ? .interpolatingSpring(stiffness: 250, damping: 20)
+          : .easeOut(duration: 0.18),
+      value: isExpanded
+    )
   }
   
   private func formatTime(_ timeString: String) -> String {
@@ -509,6 +563,7 @@ private struct TrainGroupCard: View {
     return timeString
   }
 }
+
 
 // MARK: - Schedule Time Row
 
@@ -521,68 +576,28 @@ private struct ScheduleTimeRow: View {
   
   var body: some View {
     Button(action: onTap) {
-      VStack(spacing: 0) {
-        HStack(spacing: 12) {
-          // Time badge
-          VStack(spacing: 2) {
-            if let departureTime = schedule.departureTime {
-              Text(formatTime(departureTime))
-                .font(.system(.body, design: .rounded).monospacedDigit().weight(.semibold))
-                .foregroundStyle(isPast ? .tertiary : .primary)
-            }
+      HStack {
+        VStack(alignment: .leading, spacing: 4) {
+          if let departureTime = schedule.departureTime {
+            Text(formatTime(departureTime))
             
-            Text(schedule.isOrigin ? "Awal" : schedule.isDestination ? "Akhir" : "Berhenti")
+            Text(isPast ? "Sudah Lewat" : "Tap Untuk Melacak")
               .font(.caption2)
-              .foregroundStyle(.tertiary)
-          }
-          .frame(width: 80, alignment: .leading)
-          
-          // Time indicator
-          VStack(spacing: 4) {
-            Circle()
-              .fill(isPast ? Color.gray.opacity(0.3) : Color.highlight)
-              .frame(width: 12, height: 12)
-            
-            if !isLast {
-              Rectangle()
-                .fill(Color.gray.opacity(0.2))
-                .frame(width: 2)
-                .frame(maxHeight: .infinity)
-            }
-          }
-          .frame(height: isLast ? 12 : 50)
-          
-          // Details
-          VStack(alignment: .leading, spacing: 4) {
-            if let arrivalTime = schedule.arrivalTime,
-               schedule.arrivalTime != schedule.departureTime {
-              Text("Tiba: \(formatTime(arrivalTime))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            
-            if isPast {
-              Text("Telah berangkat")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-            } else {
-              Text("Tap untuk lacak")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.highlight)
-            }
-          }
-          
-          Spacer()
-          
-          if !isPast {
-            Image(systemName: "arrow.right.circle.fill")
-              .font(.title3)
-              .foregroundStyle(.highlight)
+              .if(!isPast) { view in
+                view.foregroundStyle(.highlight)
+              }
           }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        Spacer()
+        
+        Image(systemName: "chevron.right")
+          .font(.caption2)
+          .if(!isPast) { view in
+            view.foregroundStyle(.highlight)
+          }
       }
+      .padding()
+      .padding(.horizontal, 14)
     }
     .buttonStyle(.plain)
     .disabled(isPast)
@@ -626,87 +641,6 @@ private struct ScheduleTimeRow: View {
     }
   }
   
-}
-
-// MARK: - Train Schedule Row (Legacy - kept for reference)
-
-private struct TrainScheduleRow: View {
-  let train: TrainStopService.TrainAtStation
-  let isSelected: Bool
-  let onTap: () -> Void
-  
-  var body: some View {
-    Button(action: onTap) {
-      VStack(spacing: 0) {
-        HStack(alignment: .top, spacing: 12) {
-          // Train icon
-          ZStack {
-            Circle()
-              .fill(Color.highlight.opacity(0.1))
-              .frame(width: 48, height: 48)
-            
-            Image(systemName: "tram.fill")
-              .font(.title3)
-              .foregroundStyle(.highlight)
-          }
-          
-          VStack(alignment: .leading, spacing: 4) {
-            // Train name and code
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-              Text(train.trainName)
-                .font(.headline)
-                .foregroundStyle(.primary)
-              
-              Text(train.trainCode)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.secondary)
-            }
-            
-            // Route
-            HStack(spacing: 4) {
-              Text(train.origin)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-              
-              Image(systemName: "arrow.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-              
-              Text(train.destination)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            }
-            
-            // Time information
-            HStack(spacing: 16) {
-              if let arrivalTime = train.arrivalTime {
-                TimeLabel(label: "Tiba", time: arrivalTime)
-              }
-              
-              if let departureTime = train.departureTime {
-                TimeLabel(label: "Berangkat", time: departureTime)
-              }
-            }
-            .padding(.top, 4)
-          }
-          
-          Spacer()
-          
-          // Chevron indicator
-          Image(systemName: "chevron.right")
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.tertiary)
-        }
-        .padding(16)
-      }
-      .background(isSelected ? Color.highlight.opacity(0.05) : Color.backgroundSecondary)
-      .cornerRadius(12)
-    }
-    .buttonStyle(.plain)
-  }
 }
 
 // MARK: - Time Label
