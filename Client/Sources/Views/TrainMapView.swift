@@ -13,71 +13,25 @@ struct TrainMapView: View {
   @State private var visibleRegionSpan: MKCoordinateSpan?
   @State private var trainStops: [TrainStopService.TrainStop] = []
   @State private var isLoadingStops: Bool = false
+  @State private var hasSetInitialPosition: Bool = false
 
   private let trainStopService = TrainStopService()
+  private let proximityService = StationProximityService.shared
 
   private var isTrackingTrain: Bool {
-    mapStore.liveTrainPosition != nil
+    mapStore.liveTrainPosition != nil || mapStore.selectedTrain != nil
   }
 
   var body: some View {
     ZStack(alignment: .topTrailing) {
-      Map(position: $cameraPosition) {
-        // Routes
-        ForEach(filteredRoutes) { route in
-          let coords = route.coordinates
-          if coords.count > 1 {
-            MapPolyline(coordinates: coords)
-              .stroke(.blue, lineWidth: 3)
-          }
-        }
-        if isTrackingTrain || (!isTrackingTrain && isStationZoomVisible) {
-          ForEach(filteredStations) { station in
-            Annotation(station.name, coordinate: station.coordinate) {
-              Button {
-                mapStore.selectedStationForSchedule = station
-                router.navigate(to: .sheet(.stationSchedule))
-              } label: {
-                ZStack {
-                  Circle()
-                    .fill(Color.blue)
-                    .frame(width: 32, height: 32)
-                    .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
-                  Circle()
-                    .strokeBorder(Color.white.opacity(0.9), lineWidth: 2)
-                    .frame(width: 32, height: 32)
-                  Text(station.code)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .padding(.horizontal, 4)
-                }
-              }
-            }
-          }
-        }
-        // Live train(s)
-        ForEach(filteredTrains) { train in
-          let isMoving = train.moving
-          Marker("\(train.name) (\(train.code))", systemImage: "tram.fill", coordinate: train.coordinate)
-            .tint(isMoving ? .blue : .red)
-        }
-      }
-      .onMapCameraChange(frequency: .onEnd) { context in
-        let region = context.region
-        visibleRegionSpan = region.span
-      }
-      // break follow as soon as user interacts with the map
-      .simultaneousGesture(
-        DragGesture(minimumDistance: 0).onChanged { _ in
-            print("Check Trigger gesture")
-          userHasPanned = true
-          isFollowing = false
-        }
+      mapView
+      
+      MapControl(
+        isFollowing: $isFollowing,
+        focusTrigger: $focusTrigger,
+        userHasPanned: $userHasPanned,
+        isTrackingTrain: isTrackingTrain
       )
-
-      MapControl(isFollowing: $isFollowing, focusTrigger: $focusTrigger, userHasPanned: $userHasPanned)
     }
     .mapControlVisibility(.hidden)
     .mapStyle(mapStyleForCurrentSelection)
@@ -121,10 +75,15 @@ struct TrainMapView: View {
       if newValue {
         isFollowing = true
         userHasPanned = false
+        
+        // Priority: Train tracking > User location
         if let position = mapStore.liveTrainPosition {
           updateCameraPosition(with: [position])
         } else if let train = mapStore.selectedTrain {
           updateCameraPosition(with: [train])
+        } else if let userLocation = proximityService.currentUserLocation {
+          // Focus on user location when no train is being tracked
+          focusOnUserLocation(userLocation)
         }
       }
     }
@@ -150,14 +109,8 @@ struct TrainMapView: View {
         }
       }
 
-      // Initial focus: if following, prefer live position; else fallback to selected train
-      if isFollowing {
-        if let position = mapStore.liveTrainPosition {
-          updateCameraPosition(with: [position])
-        } else if let train = mapStore.selectedTrain {
-          updateCameraPosition(with: [train])
-        }
-      }
+      // Set initial camera position based on user location
+      setInitialCameraPosition()
     }
 
     // Auto-reset the trigger after it's consumed so it's fire-once
@@ -166,6 +119,63 @@ struct TrainMapView: View {
         focusTrigger = false
       }
     }
+  }
+
+  // MARK: - Initial Camera Position
+
+  private func setInitialCameraPosition() {
+    // Only set initial position once
+    guard !hasSetInitialPosition else { return }
+    
+    // Priority 1: If following and there's a live train position, focus on that
+    if isFollowing {
+      if let position = mapStore.liveTrainPosition {
+        updateCameraPosition(with: [position])
+        hasSetInitialPosition = true
+        return
+      } else if let train = mapStore.selectedTrain {
+        updateCameraPosition(with: [train])
+        hasSetInitialPosition = true
+        return
+      }
+    }
+    
+    // Priority 2: Use user's current location to show their city/area
+    if let userLocation = proximityService.currentUserLocation {
+      print("📍 Setting initial camera to user location: \(userLocation.latitude), \(userLocation.longitude)")
+      
+      withAnimation(.easeInOut(duration: 1.0)) {
+        cameraPosition = .region(
+          MKCoordinateRegion(
+            center: userLocation,
+            // Show city-level zoom (adjust span based on your needs)
+            span: MKCoordinateSpan(latitudeDelta: 0.15, longitudeDelta: 0.15)
+          )
+        )
+      }
+      hasSetInitialPosition = true
+      return
+    }
+    
+    // Priority 3: If no user location, try to show all stations
+    if !mapStore.stations.isEmpty {
+      let stationCoords = mapStore.stations.map { $0.coordinate }
+      updateCameraToFitCoordinates(stationCoords)
+      hasSetInitialPosition = true
+      return
+    }
+    
+    // Fallback: Default to Indonesia center if nothing else works
+    print("⚠️ No location available, using default Indonesia center")
+    withAnimation(.easeInOut(duration: 1.0)) {
+      cameraPosition = .region(
+        MKCoordinateRegion(
+          center: CLLocationCoordinate2D(latitude: -6.2088, longitude: 106.8456), // Jakarta
+          span: MKCoordinateSpan(latitudeDelta: 1.0, longitudeDelta: 1.0)
+        )
+      )
+    }
+    hasSetInitialPosition = true
   }
 
   // MARK: - Train Stop Loading
@@ -189,7 +199,96 @@ struct TrainMapView: View {
     }
   }
 
-  // MARK: - Computed filters
+  // MARK: - Map View Components
+  
+  private var mapView: some View {
+    Map(position: $cameraPosition) {
+      // User location indicator (optional - shows blue dot)
+      UserAnnotation()
+      
+      // Routes
+      ForEach(filteredRoutes) { route in
+        routePolyline(for: route)
+      }
+      
+      // Stations
+      if shouldShowStations {
+        ForEach(filteredStations) { station in
+          stationAnnotation(for: station)
+        }
+      }
+      
+      // Live train(s)
+      ForEach(filteredTrains) { train in
+        trainMarker(for: train)
+      }
+    }
+    .onMapCameraChange(frequency: .onEnd) { context in
+      let region = context.region
+      visibleRegionSpan = region.span
+    }
+    .simultaneousGesture(
+      DragGesture(minimumDistance: 0).onChanged { _ in
+        print("Check Trigger gesture")
+        userHasPanned = true
+        isFollowing = false
+      }
+    )
+  }
+  
+  private var shouldShowStations: Bool {
+    isTrackingTrain || (!isTrackingTrain && isStationZoomVisible)
+  }
+  
+  @MapContentBuilder
+  private func routePolyline(for route: Route) -> some MapContent {
+    let coords = route.coordinates
+    if coords.count > 1 {
+      MapPolyline(coordinates: coords)
+        .stroke(.blue, lineWidth: 3)
+    }
+  }
+  
+  @MapContentBuilder
+  private func stationAnnotation(for station: Station) -> some MapContent {
+    Annotation(station.name, coordinate: station.coordinate) {
+      Button {
+        mapStore.selectedStationForSchedule = station
+        router.navigate(to: .sheet(.stationSchedule))
+      } label: {
+        stationButtonLabel(for: station)
+      }
+    }
+  }
+  
+  private func stationButtonLabel(for station: Station) -> some View {
+    ZStack {
+      Circle()
+        .fill(Color.blue)
+        .frame(width: 32, height: 32)
+        .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1)
+      Circle()
+        .strokeBorder(Color.white.opacity(0.9), lineWidth: 2)
+        .frame(width: 32, height: 32)
+      Text(station.code)
+        .font(.system(size: 12, weight: .bold, design: .rounded))
+        .foregroundStyle(.white)
+        .minimumScaleFactor(0.6)
+        .lineLimit(1)
+        .padding(.horizontal, 4)
+    }
+  }
+  
+  @MapContentBuilder
+  private func trainMarker(for train: ProjectedTrain) -> some MapContent {
+    let isMoving = train.moving
+    Marker(
+      "\(train.name) (\(train.code))",
+      systemImage: "tram.fill",
+      coordinate: train.coordinate
+    )
+    .tint(isMoving ? .blue : .red)
+  }
 
   private var filteredRoutes: [Route] {
     guard let journeyData = mapStore.selectedJourneyData else {
@@ -248,6 +347,19 @@ struct TrainMapView: View {
   private var isStationZoomVisible: Bool {
     guard let span = visibleRegionSpan else { return false }
     return span.latitudeDelta <= 2.0
+  }
+  
+  private func focusOnUserLocation(_ userLocation: CLLocationCoordinate2D) {
+    print("📍 Focusing camera on user location: \(userLocation.latitude), \(userLocation.longitude)")
+    
+    withAnimation(.easeInOut(duration: 1.0)) {
+      cameraPosition = .region(
+        MKCoordinateRegion(
+          center: userLocation,
+          span: MKCoordinateSpan(latitudeDelta: 0.15, longitudeDelta: 0.15)
+        )
+      )
+    }
   }
 
   private func updateCameraPosition(with positions: [ProjectedTrain]) {

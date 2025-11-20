@@ -33,6 +33,18 @@ final class StationProximityService: NSObject, Sendable {
   private var lastUserLocation: CLLocationCoordinate2D?
   private var hasActiveJourney: Bool = false
   
+  // MARK: - Public Location Access
+  
+  /// Get current user location coordinate
+  var currentUserLocation: CLLocationCoordinate2D? {
+    locationManager.location?.coordinate ?? lastUserLocation
+  }
+  
+  /// Get current user location as CLLocation
+  var currentUserCLLocation: CLLocation? {
+    locationManager.location
+  }
+  
   private override init() {
     super.init()
     locationManager.delegate = self

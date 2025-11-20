@@ -138,7 +138,7 @@ struct HomeScreen: View {
     if trainMapStore.selectedTrain != nil {
       return [.height(80), .height(240), .large]
     } else {
-      return [.fraction(0.19)]
+      return [.fraction(0.2)]
     }
   }
   

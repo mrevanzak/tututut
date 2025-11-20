@@ -32,6 +32,9 @@ struct MapControl: View {
   @Binding var isFollowing: Bool
   @Binding var focusTrigger: Bool
   @Binding var userHasPanned: Bool
+  
+  // New parameter to determine what focus button should do
+  let isTrackingTrain: Bool
 
   @Namespace private var namespace
 
@@ -44,7 +47,7 @@ struct MapControl: View {
           Button {
             focusTrigger = true
           } label: {
-            buttonLabel(icon: "scope")
+            buttonLabel(icon: focusButtonIcon, tooltip: focusButtonTooltip)
           }
         }
       }
@@ -58,6 +61,24 @@ struct MapControl: View {
 
   private var showFocusButton: Bool {
     return userHasPanned
+  }
+  
+  // Dynamic icon based on what we're tracking
+  private var focusButtonIcon: String {
+    if isTrackingTrain {
+      return "scope" // Train tracking icon
+    } else {
+      return "location.fill" // User location icon
+    }
+  }
+  
+  // Dynamic tooltip for accessibility
+  private var focusButtonTooltip: String {
+    if isTrackingTrain {
+      return "Focus on Train"
+    } else {
+      return "Focus on My Location"
+    }
   }
 
   func mapStylePicker() -> some View {
@@ -75,21 +96,27 @@ struct MapControl: View {
       }
       .pickerStyle(.inline)
     } label: {
-      buttonLabel(icon: trainMapStore.selectedMapStyle.icon)
+      buttonLabel(icon: trainMapStore.selectedMapStyle.icon, tooltip: "Select Map Style")
     }
     .accessibilityLabel("Select Map Style")
   }
 
-  func buttonLabel(icon: String) -> some View {
+  func buttonLabel(icon: String, tooltip: String? = nil) -> some View {
     Image(systemName: icon)
       .font(.headline)
       .frame(width: 44, height: 44)
       .glassEffect(.regular.interactive())
       .glassEffectID(icon, in: namespace)
+      .accessibilityLabel(tooltip ?? icon)
   }
 }
 
 #Preview {
-  MapControl(isFollowing: .constant(true), focusTrigger: .constant(false), userHasPanned: .constant(false))
-    .padding()
+  MapControl(
+    isFollowing: .constant(true),
+    focusTrigger: .constant(false),
+    userHasPanned: .constant(false),
+    isTrackingTrain: false
+  )
+  .padding()
 }
