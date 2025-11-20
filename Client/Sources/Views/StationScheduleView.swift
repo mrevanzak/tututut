@@ -56,7 +56,6 @@ struct StationScheduleView: View {
   @State private var filteredGroupedTrains: [GroupedTrainSchedule] = []
   @State private var isLoading: Bool = false
   @State private var expandedGroups: Set<String> = []
-  @State private var headerHeight: CGFloat = 0
   @State private var selectedTrain: String = "Semua Kereta"
   
   @State var uniqueTrainNames: [String] = []
@@ -65,34 +64,37 @@ struct StationScheduleView: View {
   private let journeyService = JourneyService()
   
   var body: some View {
-    ZStack(alignment: .top) {
-      
+    ZStack {
       if let station = mapStore.selectedStationForSchedule {
         contentView(for: station)
       } else {
         emptyStateView
       }
-      headerView
-        .background(
-          GeometryReader { proxy in
-            Color.clear
-              .onAppear {
-                headerHeight = proxy.size.height
-              }
-              .onChange(of: proxy.size.height) {
-                headerHeight = proxy.size.height
-              }
-          }
-        )
-      
-      HStack {
-        Spacer()
-        
-        customPickerLabel
+    }
+    .safeAreaInset(edge: .top) {
+      VStack(spacing: 0) {
+        headerView
+
+        // Picker directly under the header
+        HStack {
+          Spacer()
+          customPickerLabel
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
       }
-      .padding(.top, headerHeight)
-      .padding(.horizontal)
-      
+      .background(
+        LinearGradient(
+          colors: [
+            Color.backgroundPrimary,
+            Color.backgroundPrimary.opacity(1),
+            Color.backgroundPrimary.opacity(0.95),
+            Color.backgroundPrimary.opacity(0),
+          ],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
     }
     .padding(.top, 12)
     .background(.backgroundPrimary)
@@ -103,7 +105,7 @@ struct StationScheduleView: View {
       applyTrainFilter()
     }
   }
-  
+
   // MARK: - Header View
   
   private var customPickerLabel: some View {
@@ -172,18 +174,7 @@ struct StationScheduleView: View {
       .glassEffect(.regular.tint(.backgroundSecondary))
     }
     .padding()
-    .background(
-      LinearGradient(
-        colors: [
-          Color.backgroundPrimary,
-          Color.backgroundPrimary.opacity(1),
-          Color.backgroundPrimary.opacity(0.95),
-          Color.backgroundPrimary.opacity(0),
-        ],
-        startPoint: .top,
-        endPoint: .bottom
-      )
-    )
+    
   }
   
   // MARK: - Content View
@@ -258,7 +249,7 @@ struct StationScheduleView: View {
           }
         }
         .padding()
-        .padding(.top, headerHeight + 4)
+        .padding(.top, 116)
       }
       
       LinearGradient(
