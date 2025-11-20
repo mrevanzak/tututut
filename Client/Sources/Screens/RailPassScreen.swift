@@ -108,9 +108,33 @@ struct RailPassScreen: View {
     let renderer = ImageRenderer(content: shareView)
     renderer.scale = displayScale
 
-    if let uiImage = renderer.uiImage {
-      renderedImage = uiImage
-      showShareSheet = true
+    if let uiImage = renderer.uiImage,
+      let imageData = uiImage.pngData()
+    {
+      openInInstagram(imageData: imageData)
+    }
+  }
+
+  private func openInInstagram(imageData: Data) {
+    let pasteboardItems = [
+      "com.instagram.sharedSticker.backgroundImage": imageData
+    ]
+    UIPasteboard.general.setItems(
+      [pasteboardItems],
+      options: [
+        .expirationDate: Date().addingTimeInterval(60 * 5)
+      ])
+
+    let instagramURL = URL(string: "instagram-stories://share?source_application=com.kreta.app")!
+
+    if UIApplication.shared.canOpenURL(instagramURL) {
+      UIApplication.shared.open(instagramURL)
+    } else {
+      // Fallback to system share sheet if Instagram is not installed
+      if let image = UIImage(data: imageData) {
+        renderedImage = image
+        showShareSheet = true
+      }
     }
   }
 }
