@@ -53,9 +53,13 @@ struct StationScheduleView: View {
   
   @State private var trains: [TrainStopService.TrainAtStation] = []
   @State private var groupedTrains: [GroupedTrainSchedule] = []
+  @State private var filteredGroupedTrains: [GroupedTrainSchedule] = []
   @State private var isLoading: Bool = false
   @State private var expandedGroups: Set<String> = []
   @State private var headerHeight: CGFloat = 0
+  @State private var selectedTrain: String = "Semua Kereta"
+  
+  @State var uniqueTrainNames: [String] = []
   
   private let trainStopService = TrainStopService()
   private let journeyService = JourneyService()
@@ -75,19 +79,62 @@ struct StationScheduleView: View {
               .onAppear {
                 headerHeight = proxy.size.height
               }
-              .onChange(of: proxy.size.height) { newValue in
-                headerHeight = newValue
+              .onChange(of: proxy.size.height) {
+                headerHeight = proxy.size.height
               }
           }
         )
+      
+      HStack {
+        Spacer()
+        
+        customPickerLabel
+      }
+      .padding(.top, headerHeight)
+      .padding(.horizontal)
+      
     }
+    .padding(.top, 12)
     .background(.backgroundPrimary)
     .task {
       await loadTrainSchedule()
     }
+    .onChange(of: selectedTrain) {
+      applyTrainFilter()
+    }
   }
   
   // MARK: - Header View
+  
+  private var customPickerLabel: some View {
+    ZStack {
+      // Visual label
+      HStack(spacing: 8) {
+        Text(selectedTrain)
+          .foregroundStyle(.primary)
+        
+        Image(systemName: "chevron.down")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(.secondary)
+      }
+      .frame(alignment: .leading)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+
+      .glassEffect()
+      
+      // Invisible picker for interaction
+      Picker("", selection: $selectedTrain) {
+        ForEach(uniqueTrainNames, id: \.self) { trainName in
+          Text(trainName).tag(trainName)
+        }
+      }
+      .pickerStyle(.menu)
+      .labelsHidden()
+      .opacity(0.02)
+      .contentShape(Rectangle())
+    }
+  }
   
   private var headerView: some View {
     HStack {
@@ -191,7 +238,7 @@ struct StationScheduleView: View {
     ZStack(alignment: .bottom) {
       ScrollView {
         LazyVStack(spacing: 12) {
-          ForEach(groupedTrains) { group in
+          ForEach(filteredGroupedTrains) { group in
             TrainGroupCard(
               group: group,
               isExpanded: expandedGroups.contains(group.id),
@@ -211,7 +258,7 @@ struct StationScheduleView: View {
           }
         }
         .padding()
-        .padding(.top, headerHeight - 4)
+        .padding(.top, headerHeight + 4)
       }
       
       LinearGradient(
@@ -249,7 +296,11 @@ struct StationScheduleView: View {
     do {
       trains = try await trainStopService.getTrainsAtStation(stationId: stationId).filter { !$0.isDestination }
       
+      let trainNames = Set(trains.map { $0.trainName }).sorted()
+      uniqueTrainNames = ["Semua Kereta"] + trainNames
+      
       updateGroupedTrains()
+      applyTrainFilter()
     } catch {
       showToast("Gagal memuat jadwal kereta")
       print("Failed to load train schedule: \(error)")
@@ -285,6 +336,14 @@ struct StationScheduleView: View {
       }
       return a.origin < b.origin
       //      return "\(a.origin)-\(a.destination)" < "\(b.origin)-\(b.destination)"
+    }
+  }
+  
+  private func applyTrainFilter() {
+    if selectedTrain == "Semua Kereta" {
+      filteredGroupedTrains = groupedTrains
+    } else {
+      filteredGroupedTrains = groupedTrains.filter { $0.trainName == selectedTrain }
     }
   }
   
@@ -509,7 +568,7 @@ private struct TrainGroupCard: View {
                 Image(systemName: "tram.circle.fill")
                   .font(.caption2)
                   .foregroundStyle(.sublime)
-  
+                
                 Text("\(group.schedules.count) jadwal")
                   .font(.caption2)
                   .foregroundStyle(.sublime)
@@ -549,8 +608,8 @@ private struct TrainGroupCard: View {
     .cornerRadius(12)
     .animation(
       isExpanded
-          ? .interpolatingSpring(stiffness: 250, damping: 20)
-          : .easeOut(duration: 0.18),
+      ? .interpolatingSpring(stiffness: 250, damping: 20)
+      : .easeOut(duration: 0.18),
       value: isExpanded
     )
   }
