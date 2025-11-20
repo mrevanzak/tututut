@@ -53,7 +53,10 @@ struct AlarmConfigurationSheet: View {
   var body: some View {
     NavigationStack {
       VStack(spacing: 24) {
-        // Header
+        // New header title section
+        headerTitleSection
+
+        // Original header view remains below
         headerView
 
         // Picker
@@ -66,14 +69,6 @@ struct AlarmConfigurationSheet: View {
       }
       .padding()
       .background(Color.backgroundPrimary)
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button("Batal") {
-            dismiss()
-          }
-        }
-      }
       .alert("Pengaturan Alarm Tidak Optimal", isPresented: $showValidationAlert) {
         alertButtons
       } message: {
@@ -122,15 +117,42 @@ struct AlarmConfigurationSheet: View {
 
   // MARK: - Subviews
 
+  private var headerTitleSection: some View {
+    HStack {
+      VStack(alignment: .leading) {
+        Text("Atur Pengingat Kedatangan")
+          .font(.title2.weight(.bold))
+
+        Text("Atur alarm sesuai dengan preferensi anda")
+          .font(.callout)
+          .foregroundStyle(.secondary)
+      }
+
+      Spacer()
+
+      closeButton
+    }
+  }
+
+  private var closeButton: some View {
+    Button {
+      dismiss()
+    } label: {
+      Image(systemName: "xmark.circle.fill")
+        .symbolRenderingMode(.palette)
+        .foregroundStyle(.textSecondary, .primary)
+        .font(.largeTitle)
+    }
+    .foregroundStyle(.backgroundSecondary)
+    .glassEffect(.regular.tint(.backgroundSecondary))
+  }
+
   private var headerView: some View {
     VStack(spacing: 12) {
-      Image(systemName: "bell.badge.fill")
+      Image("Alarm")
         .font(.system(size: 48))
         .foregroundStyle(.highlight)
         .symbolRenderingMode(.hierarchical)
-
-      Text("Atur Pengingat Kedatangan")
-        .font(.title2.weight(.bold))
 
       Text(
         "Kamu akan menerima alarm sebelum tiba di tujuan. Pilih berapa menit sebelum kedatangan:"

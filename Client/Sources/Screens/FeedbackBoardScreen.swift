@@ -21,6 +21,9 @@ struct FeedbackBoardScreen: View {
     @State private var calculatedHeight: CGFloat = 44
     private let maxTextEditorHeight: CGFloat = 80
 
+    // Computed helper to avoid complex nested quotes inside interpolation
+    private var arrowSymbol: String { sortOrder == .ascending ? "↑" : "↓" }
+
     var sortedItems: [FeedbackItem] {
         let sorted = feedbackStore.feedbackItems.sorted { (a, b) -> Bool in
             let comparison: Bool
@@ -151,7 +154,7 @@ struct FeedbackBoardScreen: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.up.arrow.down")
-                Text("\(sortOption.displayName) • \(sortOrder == .ascending ? "↑" : "↓")")
+                Text("\(sortOption.displayName) • \(arrowSymbol)")
                     .font(.subheadline)
             }
             .foregroundStyle(.primary)
@@ -201,7 +204,7 @@ struct FeedbackBoardScreen: View {
                         Button {
                             submitFeedback()
                         } label: {
-                            Image(systemName: "arrow.up")
+                            Image(systemName: "paperplane.fill")
                                 .font(.headline)
                                 .bold()
                                 .foregroundStyle(.white)
@@ -280,4 +283,3 @@ struct FeedbackBoardScreen: View {
         view(for: .feedback)
     }
 }
-

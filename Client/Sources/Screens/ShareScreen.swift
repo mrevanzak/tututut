@@ -23,6 +23,11 @@ struct ShareScreen: View {
 
     var body: some View {
         NavigationStack {
+            headerTitleSection
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 16)
+
             VStack(spacing: 20) {
                 if mapStore.selectedTrain != nil {
                     Text("Story Preview")
@@ -118,12 +123,12 @@ struct ShareScreen: View {
                 }
             }
             .padding()
-            .navigationTitle("Share Journey")
-            .navigationBarTitleDisplayMode(.inline)
+//            .navigationTitle("Share Journey")
+//            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", action: { dismiss() })
-                }
+//                ToolbarItem(placement: .cancellationAction) {
+//                    Button("Close", action: { dismiss() })
+//                }
             }
             .onAppear {
                 // auto-capture once when view appears
@@ -362,5 +367,36 @@ struct ShareScreen: View {
         }
         return mapStore.routes.filter { routeIds.contains($0.id) }
     }
-}
 
+
+    // MARK: - Header
+    private var headerTitleSection: some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text("Share Perjalananmu")
+                    .font(.title2.weight(.bold))
+
+                Text("Pamerin perjalananmu ke instagram story")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            closeButton
+        }
+    }
+
+    private var closeButton: some View {
+      Button {
+        dismiss()
+      } label: {
+        Image(systemName: "xmark.circle.fill")
+          .symbolRenderingMode(.palette)
+          .foregroundStyle(.textSecondary, .primary)
+          .font(.largeTitle)
+      }
+      .foregroundStyle(.backgroundSecondary)
+      .glassEffect(.regular.tint(.backgroundSecondary))
+    }
+}
