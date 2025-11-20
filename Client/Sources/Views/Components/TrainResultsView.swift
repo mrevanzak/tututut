@@ -163,7 +163,7 @@ private struct TrainFilterPicker: View {
       .animation(.easeInOut(duration: 0.25), value: isSearchBarOverContent)
       
       // Invisible picker for interaction
-      Picker("", selection: $selectedFilter) {
+      Picker(selectedFilter, selection: $selectedFilter) {
         ForEach(uniqueTrainNames, id: \.self) { trainName in
           Text(trainName).tag(trainName)
         }

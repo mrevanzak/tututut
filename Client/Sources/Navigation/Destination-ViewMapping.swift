@@ -31,6 +31,8 @@ func view(for destination: SheetDestination) -> some View {
       AlarmConfigurationSheetContainer()
     case .stationSchedule:
       StationScheduleView()
+    case .railPass:
+      RailPassScreen()
     }
   }
 }
