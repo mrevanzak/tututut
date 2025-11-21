@@ -304,6 +304,7 @@ struct TrainExpandedBottomView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .containerRelativeFrame(.horizontal) { size, _ in
               size * 0.25
             }
@@ -339,6 +340,7 @@ struct TrainExpandedBottomView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             }
+            .frame(maxWidth: .infinity, alignment: .trailing)
             .containerRelativeFrame(.horizontal) { size, _ in
               size * 0.25
             }
@@ -479,7 +481,7 @@ extension TrainActivityAttributes {
       trainName: "Commuter Line Arjonegoro",
       from: TrainStation(
         name: "Surabaya Pasarturi",
-        code: "PSI",
+        code: "SBI",
         estimatedTime: Date().addingTimeInterval(60 * 60 * 24)
       ),
       destination: TrainStation(
