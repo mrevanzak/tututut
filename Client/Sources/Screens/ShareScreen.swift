@@ -177,7 +177,7 @@ struct ShareScreen: View {
         options.scale = scale
         options.size = CGSize(width: 1080, height: 1920) // full-screen story ratio (9:16)
         // Replace previous mapType and POI settings with preferredConfiguration
-        let config = MKStandardMapConfiguration()
+        let config = MKHybridMapConfiguration()
         config.pointOfInterestFilter = .excludingAll
         options.preferredConfiguration = config
 

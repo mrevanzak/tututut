@@ -49,88 +49,88 @@ struct HomeScreen: View {
     )
   }
   
-  var body: some View {
-    PortalContainer {
-      Group {
-        TrainMapView()
-          .sheet(isPresented: .constant(true)) {
-            // Bottom card or full journey view
+    var body: some View {
+        PortalContainer {
             Group {
-              if selectedDetent == .large, let train = trainMapStore.selectedTrain, let selectedDate = trainMapStore.selectedJourneyData?.selectedDate {
-                // Full journey progress view
-                let displayTrain = trainMapStore.liveTrainPosition ?? train
-                JourneyProgressView(
-                  train: displayTrain,
-                  journeyData: trainMapStore.selectedJourneyData,
-                  selectedDate: selectedDate,
-                  onDelete: {
-                    deleteTrain()
-                    selectedDetent = .height(240)
-                  }
-                )
-              } else if selectedDetent == .height(80), let train = trainMapStore.selectedTrain {
-                // Minimal view with train name and destination
-                minimalTrainView(train: trainMapStore.liveTrainPosition ?? train)
-              } else {
-                // Compact view with train name header and train card or add button
-                compactBottomSheet
-              }
+                TrainMapView()
+                    .sheet(isPresented: .constant(true)) {
+                        // Bottom card or full journey view
+                        Group {
+                            if selectedDetent == .large, let train = trainMapStore.selectedTrain, let selectedDate = trainMapStore.selectedJourneyData?.selectedDate {
+                                // Full journey progress view
+                                let displayTrain = trainMapStore.liveTrainPosition ?? train
+                                JourneyProgressView(
+                                    train: displayTrain,
+                                    journeyData: trainMapStore.selectedJourneyData,
+                                    selectedDate: selectedDate,
+                                    onDelete: {
+                                        deleteTrain()
+                                        selectedDetent = .height(240)
+                                    }
+                                )
+                            } else if selectedDetent == .height(80), let train = trainMapStore.selectedTrain {
+                                // Minimal view with train name and destination
+                                minimalTrainView(train: trainMapStore.liveTrainPosition ?? train)
+                            } else {
+                                // Compact view with train name header and train card or add button
+                                compactBottomSheet
+                            }
+                        }
+                        .presentationBackgroundInteraction(.enabled)
+                        .presentationDetents(presentationDetents, selection: $selectedDetent)
+                        .presentationDragIndicator(trainMapStore.selectedTrain == nil ? .hidden : .visible)
+                        .interactiveDismissDisabled(true)
+                        .animation(.easeInOut(duration: 0.3), value: trainMapStore.selectedTrain?.id)
+                        .animation(.easeInOut(duration: 0.3), value: selectedDetent)
+                        .onChange(of: trainMapStore.selectedTrain) { oldValue, newValue in
+                            // Reset to compact when train changes or is removed
+                            if newValue == nil {
+                                selectedDetent = .fraction(0.35)
+                            } else if oldValue?.id != newValue?.id {
+                                selectedDetent = .height(240)
+                            }
+                        }
+                        .routerPresentation(router: router)
+                        .task {
+                            // Show permissions onboarding on first launch
+                            if !OnboardingState.hasCompletedOnboarding() {
+                                router.navigate(to: .fullScreen(.permissionsOnboarding))
+                            }
+                        }
+                    }
             }
-            .presentationBackgroundInteraction(.enabled)
-            .presentationDetents(presentationDetents, selection: $selectedDetent)
-            .presentationDragIndicator(trainMapStore.selectedTrain == nil ? .hidden : .visible)
-            .interactiveDismissDisabled(true)
-            .animation(.easeInOut(duration: 0.3), value: trainMapStore.selectedTrain?.id)
-            .animation(.easeInOut(duration: 0.3), value: selectedDetent)
-            .onChange(of: trainMapStore.selectedTrain) { oldValue, newValue in
-              // Reset to compact when train changes or is removed
-              if newValue == nil {
-                selectedDetent = .fraction(0.35)
-              } else if oldValue?.id != newValue?.id {
-                selectedDetent = .height(240)
-              }
+            .environment(trainMapStore)
+            .portalTransition(
+                id: "trainName",
+                isActive: isPortalActive,  // <- use the computed Binding
+                animation: .spring(response: 0.2, dampingFraction: 0.8),
+                completionCriteria: .removed
+            ) {
+                if let train = trainMapStore.liveTrainPosition ?? trainMapStore.selectedTrain {
+                    if isPortalActive.wrappedValue {
+                        Text(train.name)
+                            .font(.title3.weight(.bold))
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                }
             }
-            .routerPresentation(router: router)
+            .portalTransition(
+                id: "trainCode",
+                isActive: isPortalActive,  // <- use the computed Binding
+            ) {
+                if isPortalActive.wrappedValue,
+                   let train = trainMapStore.liveTrainPosition ?? trainMapStore.selectedTrain
+                {
+                    Text("(\(train.code))")
+                        .fontWeight(.bold)
+                        .foregroundStyle(.sublime)
+                }
+            }
+            
             .task {
-              // Show permissions onboarding on first launch
-              if !OnboardingState.hasCompletedOnboarding() {
-                router.navigate(to: .fullScreen(.permissionsOnboarding))
-              }
+                try? await trainMapStore.loadSelectedTrainFromCache()
             }
-          }
-      }
-      .environment(trainMapStore)
-      .portalTransition(
-        id: "trainName",
-        isActive: isPortalActive,  // <- use the computed Binding
-        animation: .spring(response: 0.2, dampingFraction: 0.8),
-        completionCriteria: .removed
-      ) {
-        if let train = trainMapStore.liveTrainPosition ?? trainMapStore.selectedTrain {
-          if isPortalActive.wrappedValue {
-            Text(train.name)
-              .font(.title3.weight(.bold))
-              .fixedSize(horizontal: true, vertical: false)
-          }
-        }
-      }
-      .portalTransition(
-        id: "trainCode",
-        isActive: isPortalActive,  // <- use the computed Binding
-      ) {
-        if isPortalActive.wrappedValue,
-           let train = trainMapStore.liveTrainPosition ?? trainMapStore.selectedTrain
-        {
-          Text("(\(train.code))")
-            .fontWeight(.bold)
-            .foregroundStyle(.sublime)
-        }
-      }
-    }
-    .task {
-      try? await trainMapStore.loadSelectedTrainFromCache()
-    }
-  }
+        }}
   
   // MARK: - Computed Properties
   
@@ -436,6 +436,7 @@ struct HomeScreen: View {
                           .lineLimit(2)
                           .fixedSize(horizontal: false, vertical: true)
                   }
+                  .padding(.leading, 16)
                   
                   Image("Arrow")
                       .resizable()

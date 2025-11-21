@@ -287,7 +287,7 @@ struct TrainMapView: View {
       systemImage: "tram.fill",
       coordinate: train.coordinate
     )
-    .tint(isMoving ? .blue : .red)
+    .tint(isMoving ? .green : .red)
   }
 
   private var filteredRoutes: [Route] {
