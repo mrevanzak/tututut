@@ -27,8 +27,8 @@ struct BeforeBoardingView: View {
           .font(.headline)
           .bold()
           .foregroundColor(.highlight)
-          .lineLimit(1)
-          .minimumScaleFactor(0.6)
+          .lineLimit(2)
+          .minimumScaleFactor(0.7)
 
         HStack(spacing: 0) {
           Image(systemName: "mappin")
@@ -125,31 +125,20 @@ struct BeforeBoardingSmallView: View {
   let context: ActivityViewContext<TrainActivityAttributes>
 
   var body: some View {
-    HStack {
-      VStack(alignment: .leading, spacing: 6) {
-        Text(context.attributes.trainName)
-          .font(.body)
-          .bold()
-          .foregroundColor(.highlight)
-          .lineLimit(1)
-          .minimumScaleFactor(0.8)
+    VStack(alignment: .leading, spacing: 2) {
+      Text(context.attributes.trainName)
+        .font(.body)
+        .bold()
+        .foregroundColor(.highlight)
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
 
+      HStack {
         Text("Berangkat")
           .font(.caption2)
           .foregroundStyle(.secondary)
-      }
 
-      Spacer()
-
-      VStack(alignment: .trailing, spacing: 4) {
-        // Text(
-        //   "\(context.attributes.seatClass.number) \(context.attributes.seatClass.name) | \(context.attributes.seatNumber)"
-        // )
-        // .lineLimit(1)
-        // .minimumScaleFactor(0.8)
-        // .font(.footnote)
-        // .monospacedDigit()
-        // .foregroundStyle(.secondary)
+        Spacer()
 
         if let departureTime = context.attributes.from.estimatedTime {
           Text(timerInterval: Date()...departureTime, showsHours: true)
@@ -291,7 +280,12 @@ struct TrainExpandedBottomView: View {
   @Environment(\.colorScheme) private var colorScheme
 
   let context: ActivityViewContext<TrainActivityAttributes>
-  var withPadding: Bool = false
+  var on: PresentationType = .lockscreen
+
+  enum PresentationType {
+    case dynamicIsland
+    case lockscreen
+  }
 
   var body: some View {
     VStack {
@@ -320,6 +314,7 @@ struct TrainExpandedBottomView: View {
                 .bold()
                 .foregroundColor(.gray)
                 .minimumScaleFactor(0.8)
+                .multilineTextAlignment(.center)
 
               Image(.kereta)
                 .resizable()
@@ -412,7 +407,7 @@ struct WidgetLiveActivity: Widget {
           case .beforeBoarding:
             BeforeBoardingView(context: context)
           case .onBoard:
-            TrainExpandedBottomView(context: context, withPadding: true)
+            TrainExpandedBottomView(context: context, on: .dynamicIsland)
           case .prepareToDropOff:
             PrepareToDropOffView(context: context)
           }
@@ -481,15 +476,15 @@ struct WidgetLiveActivity: Widget {
 extension TrainActivityAttributes {
   fileprivate static var preview: TrainActivityAttributes {
     TrainActivityAttributes(
-      trainName: "Argo Bromo Anggrek",
+      trainName: "Commuter Line Arjonegoro",
       from: TrainStation(
-        name: "Malang",
-        code: "ML",
+        name: "Surabaya Pasarturi",
+        code: "PSI",
         estimatedTime: Date().addingTimeInterval(60 * 60 * 24)
       ),
       destination: TrainStation(
-        name: "Pasar Senen",
-        code: "PSE",
+        name: "Lamongan",
+        code: "LMG",
         estimatedTime: Date().addingTimeInterval(60 * 60 * 24)
       ),
       // seatClass: SeatClass.economy(number: 9),
