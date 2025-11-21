@@ -401,5 +401,4 @@ struct AddTrainView: View {
   return AddTrainView()
     .environment(Router.previewRouter())
     .environment(store)
-    .environment(\.showToast, .preview)
 }

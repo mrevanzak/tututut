@@ -18,9 +18,12 @@ struct KretaApp: App {
       PortalContainer {
         NavigationContainer(parentRouter: router) {
           HomeScreen()
-            .environment(\.convexClient, convexClient)
-            .withToast()
         }
+      }
+      .withToast()
+      .environment(\.convexClient, convexClient)
+      .onAppear {
+        setupToastWindow()
       }
     }
     .onChange(of: scenePhase) { _, newPhase in
@@ -28,6 +31,15 @@ struct KretaApp: App {
       Task {
         await TrainLiveActivityService.shared.refreshInForeground()
       }
+    }
+  }
+
+  private func setupToastWindow() {
+    guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+      return
+    }
+    Task { @MainActor in
+      ToastWindowManager.shared.setup(in: windowScene)
     }
   }
 }
