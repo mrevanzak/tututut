@@ -5,7 +5,6 @@
 //  Created by Gilang Banyu Biru Erassunu on 25/10/25.
 //
 
-import Portal
 import SwiftUI
 
 struct TrainCard: View {

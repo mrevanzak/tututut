@@ -1,4 +1,5 @@
 import ConvexMobile
+import Portal
 import SwiftUI
 
 @main
@@ -14,10 +15,12 @@ struct KretaApp: App {
 
   var body: some Scene {
     WindowGroup {
-      NavigationContainer(parentRouter: router) {
-        HomeScreen()
-          .environment(\.convexClient, convexClient)
-          .withToast()
+      PortalContainer {
+        NavigationContainer(parentRouter: router) {
+          HomeScreen()
+            .environment(\.convexClient, convexClient)
+            .withToast()
+        }
       }
     }
     .onChange(of: scenePhase) { _, newPhase in

@@ -1,5 +1,4 @@
 import MapKit
-import Portal
 import SwiftUI
 
 // MARK: - Main Map Screen
@@ -50,85 +49,57 @@ struct HomeScreen: View {
   }
 
   var body: some View {
-    PortalContainer {
-      Group {
-        TrainMapView()
-          .sheet(isPresented: .constant(true)) {
-            // Bottom card or full journey view
-            Group {
-              if selectedDetent == .large, let train = trainMapStore.selectedTrain,
-                let selectedDate = trainMapStore.selectedJourneyData?.selectedDate
-              {
-                // Full journey progress view
-                let displayTrain = trainMapStore.liveTrainPosition ?? train
-                JourneyProgressView(
-                  train: displayTrain,
-                  journeyData: trainMapStore.selectedJourneyData,
-                  selectedDate: selectedDate,
-                  onDelete: {
-                    deleteTrain()
-                    selectedDetent = .height(240)
-                  }
-                )
-              } else if selectedDetent == .height(80), let train = trainMapStore.selectedTrain {
-                // Minimal view with train name and destination
-                minimalTrainView(train: trainMapStore.liveTrainPosition ?? train)
-              } else {
-                // Compact view with train name header and train card or add button
-                compactBottomSheet
-              }
-            }
-            .presentationBackgroundInteraction(.enabled)
-            .presentationDetents(presentationDetents, selection: $selectedDetent)
-            .presentationDragIndicator(trainMapStore.selectedTrain == nil ? .hidden : .visible)
-            .interactiveDismissDisabled(true)
-            .animation(.easeInOut(duration: 0.3), value: trainMapStore.selectedTrain?.id)
-            .animation(.easeInOut(duration: 0.3), value: selectedDetent)
-            .onChange(of: trainMapStore.selectedTrain) { oldValue, newValue in
-              // Reset to compact when train changes or is removed
-              if newValue == nil {
-                selectedDetent = .fraction(0.35)
-              } else if oldValue?.id != newValue?.id {
-                selectedDetent = .height(240)
-              }
-            }
-            .routerPresentation(router: router)
-            .task {
-              // Show permissions onboarding on first launch
-              if !OnboardingState.hasCompletedOnboarding() {
-                router.navigate(to: .fullScreen(.permissionsOnboarding))
-              }
+    Group {
+      TrainMapView()
+        .sheet(isPresented: .constant(true)) {
+          // Bottom card or full journey view
+          Group {
+            if selectedDetent == .large, let train = trainMapStore.selectedTrain,
+              let selectedDate = trainMapStore.selectedJourneyData?.selectedDate
+            {
+              // Full journey progress view
+              let displayTrain = trainMapStore.liveTrainPosition ?? train
+              JourneyProgressView(
+                train: displayTrain,
+                journeyData: trainMapStore.selectedJourneyData,
+                selectedDate: selectedDate,
+                onDelete: {
+                  deleteTrain()
+                  selectedDetent = .height(240)
+                }
+              )
+            } else if selectedDetent == .height(80), let train = trainMapStore.selectedTrain {
+              // Minimal view with train name and destination
+              minimalTrainView(train: trainMapStore.liveTrainPosition ?? train)
+            } else {
+              // Compact view with train name header and train card or add button
+              compactBottomSheet
             }
           }
-      }
-      .environment(trainMapStore)
-      .portalTransition(
-        id: "trainName",
-        isActive: isPortalActive,  // <- use the computed Binding
-        animation: .spring(response: 0.2, dampingFraction: 0.8),
-        completionCriteria: .removed
-      ) {
-        if let train = trainMapStore.liveTrainPosition ?? trainMapStore.selectedTrain {
-          if isPortalActive.wrappedValue {
-            Text(train.name)
-              .font(.title3.weight(.bold))
-              .fixedSize(horizontal: true, vertical: false)
+          .presentationBackgroundInteraction(.enabled)
+          .presentationDetents(presentationDetents, selection: $selectedDetent)
+          .presentationDragIndicator(trainMapStore.selectedTrain == nil ? .hidden : .visible)
+          .interactiveDismissDisabled(true)
+          .animation(.easeInOut(duration: 0.3), value: trainMapStore.selectedTrain?.id)
+          .animation(.easeInOut(duration: 0.3), value: selectedDetent)
+          .onChange(of: trainMapStore.selectedTrain) { oldValue, newValue in
+            // Reset to compact when train changes or is removed
+            if newValue == nil {
+              selectedDetent = .fraction(0.35)
+            } else if oldValue?.id != newValue?.id {
+              selectedDetent = .height(240)
+            }
+          }
+          .routerPresentation(router: router)
+          .task {
+            // Show permissions onboarding on first launch
+            if !OnboardingState.hasCompletedOnboarding() {
+              router.navigate(to: .fullScreen(.permissionsOnboarding))
+            }
           }
         }
-      }
-      .portalTransition(
-        id: "trainCode",
-        isActive: isPortalActive,  // <- use the computed Binding
-      ) {
-        if isPortalActive.wrappedValue,
-          let train = trainMapStore.liveTrainPosition ?? trainMapStore.selectedTrain
-        {
-          Text("(\(train.code))")
-            .fontWeight(.bold)
-            .foregroundStyle(.sublime)
-        }
-      }
     }
+    .environment(trainMapStore)
     .task {
       try? await trainMapStore.loadSelectedTrainFromCache()
     }
@@ -434,7 +405,7 @@ struct HomeScreen: View {
           //              .buttonStyle(.plain)
 
           // Grey train icon + title + subtitle (UI only)
-          HStack(spacing: 12) {
+          HStack(alignment: .center, spacing: 12) {
             Image("LogoMono")
               .resizable()
               .scaledToFit()
@@ -444,16 +415,23 @@ struct HomeScreen: View {
               Text("Yuk, Naik Kereta")
                 .font(.title3).bold()
                 .foregroundColor(.sublime)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
               Text("Tekan search untuk track perjalananmu")
                 .foregroundColor(.sublime)
                 .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+            }
+            .containerRelativeFrame(.horizontal) { size, _ in
+              size * 0.5
             }
 
-            Image("Arrow")
-              .resizable()
-              .scaledToFit()
+            AnimatedArrowView()
               .frame(width: 50, height: 48)
+              .offset(x: -5, y: -25)
           }
           .padding(.horizontal, 4)
           .padding(.vertical)
