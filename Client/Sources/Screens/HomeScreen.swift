@@ -376,6 +376,7 @@ struct HomeScreen: View {
             .contentShape(Circle())
           }
         }
+        .padding(.top, 8)
       }
       
       // Show train if available, otherwise show add button
@@ -432,6 +433,8 @@ struct HomeScreen: View {
                       Text("Tekan search untuk track perjalananmu")
                           .foregroundColor(.sublime)
                           .font(.callout)
+                          .lineLimit(2)
+                          .fixedSize(horizontal: false, vertical: true)
                   }
                   
                   Image("Arrow")

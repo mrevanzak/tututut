@@ -229,7 +229,7 @@ struct TrainMapView: View {
     }
     .simultaneousGesture(
       DragGesture(minimumDistance: 0).onChanged { _ in
-        print("Check Trigger gesture")
+//        print("Check Trigger gesture")
         userHasPanned = true
         isFollowing = false
       }
