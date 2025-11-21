@@ -27,6 +27,7 @@ enum MapStyleOption: String, CaseIterable {
 
 struct MapControl: View {
   @Environment(TrainMapStore.self) private var trainMapStore
+  @Environment(Router.self) private var router
   @Environment(\.colorScheme) private var colorScheme
 
   @Binding var isFollowing: Bool
@@ -42,6 +43,12 @@ struct MapControl: View {
     GlassEffectContainer(spacing: 8) {
       VStack(alignment: .trailing, spacing: 8) {
         mapStylePicker()
+        
+        Button {
+          router.navigate(to: .sheet(.searchByStation))
+        } label: {
+          buttonLabel(icon: "magnifyingglass", tooltip: "Search by Station")
+        }
 
         if showFocusButton {
           Button {
@@ -118,5 +125,7 @@ struct MapControl: View {
     userHasPanned: .constant(false),
     isTrackingTrain: false
   )
+  .environment(Router.previewRouter())
+  .environment(TrainMapStore.preview)
   .padding()
 }

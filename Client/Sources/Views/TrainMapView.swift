@@ -119,6 +119,13 @@ struct TrainMapView: View {
         focusTrigger = false
       }
     }
+    
+    // Listen for station focus notifications
+    .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FocusOnStation"))) { notification in
+      if let station = notification.userInfo?["station"] as? Station {
+        focusOnStation(station)
+      }
+    }
   }
 
   // MARK: - Initial Camera Position
@@ -357,6 +364,23 @@ struct TrainMapView: View {
         MKCoordinateRegion(
           center: userLocation,
           span: MKCoordinateSpan(latitudeDelta: 0.15, longitudeDelta: 0.15)
+        )
+      )
+    }
+  }
+  
+  private func focusOnStation(_ station: Station) {
+    print("📍 Focusing camera on station: \(station.name) (\(station.code))")
+    
+    // Reset user panned state and enable following when focusing on station
+    userHasPanned = false
+    isFollowing = true
+    
+    withAnimation(.easeInOut(duration: 1.0)) {
+      cameraPosition = .region(
+        MKCoordinateRegion(
+          center: station.coordinate,
+          span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
         )
       )
     }
