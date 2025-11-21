@@ -261,7 +261,10 @@ struct TrainMapView: View {
     Annotation(station.name, coordinate: station.coordinate) {
       Button {
         mapStore.selectedStationForSchedule = station
-        router.navigate(to: .sheet(.stationSchedule))
+        // Focus camera on the station
+        focusOnStation(station)
+        // Navigate to station explorer (will show schedule directly if already open)
+        router.navigate(to: .sheet(.stationExplorer))
       } label: {
         stationButtonLabel(for: station)
       }

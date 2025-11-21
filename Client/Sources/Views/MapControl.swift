@@ -45,7 +45,7 @@ struct MapControl: View {
         mapStylePicker()
         
         Button {
-          router.navigate(to: .sheet(.searchByStation))
+          router.navigate(to: .sheet(.stationExplorer))
         } label: {
           buttonLabel(icon: "magnifyingglass", tooltip: "Search by Station")
         }

@@ -51,6 +51,11 @@ struct StationScheduleView: View {
   @Environment(\.showToast) private var showToast
   @Environment(Router.self) private var router
   
+  // Mode determines the navigation button and behavior
+  let mode: StationExplorerMode
+  // Optional callback for back navigation (used when mode is .search)
+  let onBack: (() -> Void)?
+  
   @State private var trains: [TrainStopService.TrainAtStation] = []
   @State private var groupedTrains: [GroupedTrainSchedule] = []
   @State private var filteredGroupedTrains: [GroupedTrainSchedule] = []
@@ -62,6 +67,11 @@ struct StationScheduleView: View {
   
   private let trainStopService = TrainStopService()
   private let journeyService = JourneyService()
+  
+  init(mode: StationExplorerMode = .direct, onBack: (() -> Void)? = nil) {
+    self.mode = mode
+    self.onBack = onBack
+  }
   
   var body: some View {
     ZStack {
@@ -162,9 +172,15 @@ struct StationScheduleView: View {
       Spacer()
       
       Button {
-        dismiss()
+        if mode == .search, let onBack = onBack {
+          // In search mode with onBack callback, go back to search
+          onBack()
+        } else {
+          // In direct mode or no callback, dismiss the sheet
+          dismiss()
+        }
       } label: {
-        Image(systemName: "xmark.circle.fill")
+        Image(systemName: mode == .search ? "chevron.left.circle.fill" : "xmark.circle.fill")
           .symbolRenderingMode(.palette)
           .foregroundStyle(.textSecondary, .primary)
           .font(.largeTitle)
@@ -728,7 +744,7 @@ private struct TimeLabel: View {
 // MARK: - Preview
 
 #Preview("Station Schedule View") {
-  let store = TrainMapStore.preview
+  @Previewable @State var store = TrainMapStore.preview
   store.selectedStationForSchedule = Station(
     id: "102",
     code: "MRI",
