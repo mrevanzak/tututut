@@ -1,4 +1,5 @@
 import ConvexMobile
+import Portal
 import SwiftUI
 
 @main
@@ -14,10 +15,15 @@ struct KretaApp: App {
 
   var body: some Scene {
     WindowGroup {
-      NavigationContainer(parentRouter: router) {
-        HomeScreen()
-          .environment(\.convexClient, convexClient)
-          .withToast()
+      PortalContainer {
+        NavigationContainer(parentRouter: router) {
+          HomeScreen()
+        }
+      }
+      .withToast()
+      .environment(\.convexClient, convexClient)
+      .onAppear {
+        setupToastWindow()
       }
     }
     .onChange(of: scenePhase) { _, newPhase in
@@ -25,6 +31,15 @@ struct KretaApp: App {
       Task {
         await TrainLiveActivityService.shared.refreshInForeground()
       }
+    }
+  }
+
+  private func setupToastWindow() {
+    guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+      return
+    }
+    Task { @MainActor in
+      ToastWindowManager.shared.setup(in: windowScene)
     }
   }
 }

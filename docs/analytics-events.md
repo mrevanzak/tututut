@@ -29,8 +29,18 @@ This document describes the analytics and error telemetry implemented in the iOS
 ### Live Activity / alarms
 
 - `live_activity_state_changed`: Activity transitioned to a new journey state (onBoard, prepareToDropOff)
+- `alarm_authorization_requested`: User is prompted for AlarmKit permission
+- `alarm_authorization_granted`: AlarmKit permission granted
+- `alarm_authorization_denied`: AlarmKit permission denied
 - `alarm_scheduled`: AlarmKit alarm was scheduled for arrival
+- `alarm_scheduling_failed`: Alarm scheduling failed (error tracking)
 - `alarm_triggered`: Alarm fired prior to arrival
+- `alarm_cancelled`: Alarm was cancelled (journey ended, user cancelled, or rescheduled)
+- `alarm_rescheduled`: Alarm was rescheduled for existing activity
+- `alarm_dismissed`: User dismissed the alarm alert
+- `alarm_interacted`: User interacted with alarm (if actions are added)
+- `alarm_configured`: User configured alarm settings (offset, validation)
+- `alarm_preference_changed`: Global alarm preferences changed (enabled/disabled, offset)
 
 ### Technical
 
@@ -104,17 +114,93 @@ Unless noted, all dates use ISO8601 strings.
   - `state` (String; e.g. "onBoard", "prepareToDropOff")
   - `train_name` (String)
 
+- `alarm_authorization_requested`
+
+  - `requested_at` (ISO8601)
+  - `previous_state` (String; "notDetermined" | "denied" | "authorized")
+
+- `alarm_authorization_granted`
+
+  - `granted_at` (ISO8601)
+  - `is_first_time` (Bool)
+
+- `alarm_authorization_denied`
+
+  - `denied_at` (ISO8601)
+  - `was_previously_denied` (Bool)
+
 - `alarm_scheduled`
 
   - `activity_id` (String)
   - `arrival_time` (ISO8601)
   - `alarm_offset_minutes` (Int)
   - `destination_code` (String)
+  - `train_name` (String, optional)
+  - `destination_name` (String, optional)
+  - `alarm_time` (ISO8601, optional)
+  - `time_until_alarm_minutes` (Int, optional)
+
+- `alarm_scheduling_failed`
+
+  - `activity_id` (String)
+  - `error_reason` (String)
+  - `arrival_time` (ISO8601)
+  - `offset_minutes` (Int)
+  - `attempted_at` (ISO8601)
 
 - `alarm_triggered`
 
   - `activity_id` (String)
   - `triggered_at` (ISO8601)
+  - `train_name` (String, optional)
+  - `destination_name` (String, optional)
+  - `offset_minutes` (Int, optional)
+  - `actual_time_until_arrival_minutes` (Int, optional)
+
+- `alarm_cancelled`
+
+  - `activity_id` (String)
+  - `cancellation_reason` (String; "journey_ended" | "user_cancelled" | "manual_cancel" | "rescheduled")
+  - `was_triggered` (Bool)
+  - `time_until_alarm_minutes` (Int, optional)
+
+- `alarm_rescheduled`
+
+  - `activity_id` (String)
+  - `previous_offset_minutes` (Int)
+  - `new_offset_minutes` (Int)
+  - `previous_alarm_time` (ISO8601)
+  - `new_alarm_time` (ISO8601)
+
+- `alarm_dismissed`
+
+  - `activity_id` (String)
+  - `dismissed_at` (ISO8601)
+  - `time_since_triggered_seconds` (Int)
+
+- `alarm_interacted`
+
+  - `activity_id` (String)
+  - `action_type` (String)
+  - `interacted_at` (ISO8601)
+
+- `alarm_configured`
+
+  - `alarm_offset_minutes` (Int)
+  - `is_valid` (Bool)
+  - `validation_failure_reason` (String, optional)
+  - `configured_at` (ISO8601)
+  - `is_initial_setup` (Bool, optional)
+  - `previous_offset_minutes` (Int, optional)
+  - `journey_duration_minutes` (Int, optional)
+  - `validation_warnings` (Array<String>, optional)
+
+- `alarm_preference_changed`
+
+  - `preference_type` (String; "enabled" | "offset_minutes")
+  - `previous_value` (Any)
+  - `new_value` (Any)
+  - `changed_at` (ISO8601)
 
 - `deep_link_opened`
 
@@ -133,12 +219,30 @@ Unless noted, all dates use ISO8601 strings.
   - `selectTrain(_:journeyData:)` → `journey_started`
   - `clearSelectedTrain()` → `journey_cancelled` (before arrival) or `journey_completed` (at/after ETA)
 
+- `Client/Sources/Services/TrainAlarmService.swift`
+
+  - `requestAuthorization()` → `alarm_authorization_requested`, `alarm_authorization_granted`, `alarm_authorization_denied`
+  - `scheduleArrivalAlarm(...)` → `alarm_scheduling_failed` (on error)
+  - `cancelArrivalAlarm(...)` → `alarm_cancelled`
+  - `cancelAllAlarms(...)` → `alarm_cancelled` (for each activity)
+
 - `Client/Sources/Services/TrainLiveActivityService.swift`
 
   - `transitionToOnBoard(activityId:)` → `live_activity_state_changed` (onBoard)
   - `transitionToPrepareToDropOff(activityId:)` → `live_activity_state_changed` (prepareToDropOff)
   - `scheduleAlarmIfEnabled(...)` → `alarm_scheduled`
-  - `handleAlarmTriggered(for:)` → `alarm_triggered`
+  - `handleAlarmTriggered(for:)` → `alarm_triggered` (enhanced with context)
+  - `refreshAlarmConfiguration(...)` → `alarm_rescheduled`
+  - `end(activityId:)` → `alarm_cancelled` (via TrainAlarmService)
+
+- `Client/Sources/Utility/AlarmPreferences.swift`
+
+  - `defaultAlarmEnabled` setter → `alarm_preference_changed`
+  - `defaultAlarmOffsetMinutes` setter → `alarm_preference_changed`
+
+- `Client/Sources/Stores/TrainMapStore.swift`
+
+  - `applyAlarmConfiguration(...)` → `alarm_configured` (enhanced with context)
 
 - `Client/Sources/Screens/TrainArriveScreen.swift`
 
@@ -174,7 +278,11 @@ Use a DEBUG build and the PostHog dashboard to verify:
 - End at/after ETA or confirm arrival → `journey_completed`
 - Two completions within 7 days → `round_trip_completed` (reverse direction flagged if applicable)
 - Navigate AddTrain flow → `train_search_initiated`, `station_selected`, `train_selected`
-- Trigger alarm lifecycle → `alarm_scheduled`, `alarm_triggered`
+- Request alarm permission → `alarm_authorization_requested`, `alarm_authorization_granted`/`denied`
+- Configure alarm → `alarm_configured` (with validation context)
+- Trigger alarm lifecycle → `alarm_scheduled`, `alarm_triggered`, `alarm_cancelled`
+- Change alarm preferences → `alarm_preference_changed`
+- Reschedule alarm → `alarm_rescheduled`
 - Open via deep link → `deep_link_opened`
 - Tap a notification → `notification_interaction`
 
@@ -192,3 +300,4 @@ Use a DEBUG build and the PostHog dashboard to verify:
 ## Change log
 
 - Introduced comprehensive analytics for launch (journey lifecycle, round-trip, engagement, deep links, notifications).
+- Enhanced alarm analytics: authorization tracking, scheduling failures, cancellations, rescheduling, preference changes, and enhanced context for all alarm events.
