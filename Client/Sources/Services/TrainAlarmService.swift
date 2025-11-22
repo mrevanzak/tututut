@@ -216,7 +216,7 @@ final class TrainAlarmService: @unchecked Sendable {
     )
 
     let alert = AlarmPresentation.Alert(
-      title: LocalizedStringResource("Segera turun di stasiun \(metadata.destinationName)!"),
+      title: LocalizedStringResource("Segera Turun!"),
       stopButton: stopButton,
       secondaryButton: nil,
       secondaryButtonBehavior: nil

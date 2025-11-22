@@ -69,7 +69,7 @@ struct PrepareToDropOffView: View {
   var body: some View {
     HStack(spacing: 12) {
       VStack(alignment: .leading) {
-        Label("Segera Turun!", systemImage: "figure.walk.circle.fill")
+        Label("Siap-siap!", systemImage: "figure.walk.circle.fill")
           .labelReservedIconWidth(24)
           .font(.body)
           .bold()
@@ -365,7 +365,7 @@ struct TrainExpandedBottomView: View {
               )
               .font(.callout)
               .bold()
-              .foregroundColor(.highlight)
+              .foregroundColor(.white)
               .multilineTextAlignment(.center)
 
               Text("Estimasi Tiba")
@@ -439,7 +439,7 @@ struct WidgetLiveActivity: Widget {
         case .beforeBoarding:
           if let departureTime = context.attributes.from.estimatedTime {
             Text(timerInterval: Date()...departureTime, showsHours: true)
-              .foregroundColor(.highlight)
+                  .foregroundColor(.white)
               .multilineTextAlignment(.trailing)
               .frame(width: 64)
           }

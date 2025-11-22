@@ -229,7 +229,7 @@ struct TrainMapView: View {
     }
     .simultaneousGesture(
       DragGesture(minimumDistance: 0).onChanged { _ in
-        print("Check Trigger gesture")
+//        print("Check Trigger gesture")
         userHasPanned = true
         isFollowing = false
       }
@@ -287,7 +287,7 @@ struct TrainMapView: View {
       systemImage: "tram.fill",
       coordinate: train.coordinate
     )
-    .tint(isMoving ? .blue : .red)
+    .tint(isMoving ? .green : .red)
   }
 
   private var filteredRoutes: [Route] {
