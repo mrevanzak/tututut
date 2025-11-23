@@ -14,19 +14,30 @@ struct SearchByStationView: View {
   let onStationSelected: (Station) -> Void
   
   @State private var searchText: String = ""
+  
+  private var nearestStationIds: Set<String> {
+    Set(StationProximityService.shared.getNearestStations(from: store.stations, limit: 3).map { $0.id ?? $0.code })
+  }
+  
   private var filteredStations: [Station] {
     let stations = searchText.isEmpty 
       ? store.stations 
       : store.stations.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     
-    return stations.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    // Sort with nearest stations first, then alphabetically
+    let nearest = stations.filter { nearestStationIds.contains($0.id ?? $0.code) }
+    let others = stations.filter { !nearestStationIds.contains($0.id ?? $0.code) }
+      .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    
+    return nearest + others
   }
   
   var body: some View {
     ZStack(alignment: .topLeading) {
       if !store.stations.isEmpty {
         List(filteredStations) { station in
-          StationRow(station: station)
+          let isNearest = nearestStationIds.contains(station.id ?? station.code)
+          StationRow(station: station, isNearestStation: isNearest)
             .onTapGesture {
               onStationSelected(station)
             }

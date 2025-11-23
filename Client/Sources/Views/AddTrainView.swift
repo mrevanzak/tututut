@@ -162,8 +162,15 @@ struct AddTrainView: View {
   // MARK: - Station List View
   
   private func stationListView() -> some View {
-    List(viewModel.filteredStations) { station in
-      StationRow(station: station)
+    let nearestStations = viewModel.currentStep == .departure
+      ? Set(StationProximityService.shared.getNearestStations(from: store.stations, limit: 3).map { $0.id ?? $0.code })
+      : Set<String>()
+    
+    let sortedStations = sortStationsWithNearest(viewModel.filteredStations, nearestStationIds: nearestStations)
+    
+    return List(sortedStations) { station in
+      let isNearest = nearestStations.contains(station.id ?? station.code)
+      StationRow(station: station, isNearestStation: isNearest)
         .onTapGesture {
           viewModel.selectStation(station)
         }
@@ -176,6 +183,12 @@ struct AddTrainView: View {
     .overlay {
       stationListOverlay
     }
+  }
+  
+  private func sortStationsWithNearest(_ stations: [Station], nearestStationIds: Set<String>) -> [Station] {
+    let nearest = stations.filter { nearestStationIds.contains($0.id ?? $0.code) }
+    let others = stations.filter { !nearestStationIds.contains($0.id ?? $0.code) }
+    return nearest + others
   }
   
   @ViewBuilder

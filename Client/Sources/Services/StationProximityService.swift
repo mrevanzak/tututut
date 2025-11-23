@@ -180,6 +180,29 @@ final class StationProximityService: NSObject, Sendable {
     }
   }
   
+  // MARK: - Public Helper Methods
+  
+  /// Get the 3 nearest stations to the user's current location
+  /// Returns empty array if location is not available
+  func getNearestStations(from stations: [Station], limit: Int = 3) -> [Station] {
+    guard let userLocation = currentUserCLLocation else {
+      return []
+    }
+    
+    return stations
+      .map { station -> (station: Station, distance: CLLocationDistance) in
+        let stationLocation = CLLocation(
+          latitude: station.position.latitude,
+          longitude: station.position.longitude
+        )
+        let distance = userLocation.distance(from: stationLocation)
+        return (station, distance)
+      }
+      .sorted { $0.distance < $1.distance }
+      .prefix(limit)
+      .map { $0.station }
+  }
+  
   // MARK: - Private Methods
   
   private func setupProximityNotifications(
