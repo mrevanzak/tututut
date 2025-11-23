@@ -81,6 +81,7 @@ struct CalendarView: View {
         )
       }
     }
+    .padding(.top, 56)
     .onAppear {
       temporarySelectedDate = selectedDate
     }

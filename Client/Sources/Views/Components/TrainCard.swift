@@ -56,20 +56,29 @@ struct TrainCard: View {
       .frame(maxWidth: .infinity)
 
       // Train icon - aligned with station codes
-      VStack(spacing: 12) {
+      VStack(spacing: trainStatus() == .belumBerangkat ? 2 : 12) {
 
-        Image(colorScheme.keretaName)
-          .resizable()
-          .aspectRatio(contentMode: .fill)
-          .frame(width: 115, height: 20)
-          .frame(maxWidth: .infinity)
+        if trainStatus() == .belumBerangkat {
+          Image(colorScheme.notYetDepart)
+            .resizable()
+            .scaledToFit()
+            .frame(maxWidth: .infinity, maxHeight: 44)
+        } else {
+          Image(colorScheme.keretaName)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 115, height: 20)
+            .frame(maxWidth: .infinity)
+        }
 
         ZStack(alignment: .top) {
-          Image(colorScheme.keretaBackground)
-            .resizable()
-            .scaledToFill()
-            .frame(maxWidth: .infinity, maxHeight: 24)
-            .offset(y: -4)
+          if trainStatus() != .belumBerangkat {
+            Image(colorScheme.keretaBackground)
+              .resizable()
+              .scaledToFill()
+              .frame(maxWidth: .infinity, maxHeight: 24)
+              .offset(y: -4)
+          }
 
           durationStatusView
 
@@ -103,11 +112,13 @@ struct TrainCard: View {
   private var fullSheetView: some View {
     VStack(spacing: 0) {
       // Train image at top of journey details
-      Image(colorScheme.keretaName)
-        .resizable()
-        .aspectRatio(contentMode: .fill)
-        .frame(width: 115, height: 20)
-        .padding(.top, 4)
+      if trainStatus() != .belumBerangkat {
+        Image(colorScheme.keretaName)
+          .resizable()
+          .aspectRatio(contentMode: .fill)
+          .frame(width: 115, height: 20)
+          .padding(.top, 4)
+      }
 
       // Journey details without train image
       HStack(spacing: 10) {
@@ -130,12 +141,21 @@ struct TrainCard: View {
 
         // Duration (separated text)
         VStack(spacing: 4) {
-          ZStack(alignment: .top) {
-            Image(colorScheme.keretaBackground)
+          if trainStatus() == .belumBerangkat {
+            Image(colorScheme.notYetDepart)
               .resizable()
-              .scaledToFill()
-              .frame(maxWidth: .infinity, maxHeight: 24)
-              .offset(y: lowerBackgroundOffset)
+              .scaledToFit()
+              .frame(height: 44)
+          }
+          
+          ZStack(alignment: .top) {
+            if trainStatus() != .belumBerangkat {
+              Image(colorScheme.keretaBackground)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: 24)
+                .offset(y: lowerBackgroundOffset)
+            }
 
             durationStatusView
 
@@ -200,11 +220,17 @@ struct TrainCard: View {
       }
 
     case .belumBerangkat:
-      Text("Kereta belum berangkat")
-        .font(.subheadline)
-        .fontWeight(.bold)
-        .foregroundStyle(.blue)
-        .multilineTextAlignment(.center)
+      VStack(spacing: 4) {
+        Text("Akan berangkat")
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+
+        Text(formattedDurationTime())
+          .font(.headline)
+          .fontWeight(.bold)
+          .foregroundStyle(.blue)
+          .multilineTextAlignment(.center)
+      }
 
     case .sudahTiba:
       Text("Sudah tiba")
@@ -252,7 +278,7 @@ struct TrainCard: View {
 
   // MARK: - Helper Functions
 
-  // Helper function to format duration time only (without "Tiba dalam" prefix)
+  // Helper function to format duration time only
   private func formattedDurationTime() -> String {
     guard let departure = departureTime, let arrival = arrivalTime else {
       return "Waktu tidak tersedia"
@@ -260,9 +286,23 @@ struct TrainCard: View {
 
     let now = Date()
 
-    // Check if train hasn't departed yet
+    // Check if train hasn't departed yet - calculate time until departure
     if now < departure {
-      return "Kereta belum berangkat"
+      let timeInterval = departure.timeIntervalSince(now)
+      let totalMinutes = Int(timeInterval / 60)
+
+      let hours = totalMinutes / 60
+      let minutes = totalMinutes % 60
+
+      if hours > 0 && minutes > 0 {
+        return "\(hours) Jam \(minutes) Menit"
+      } else if hours > 0 {
+        return "\(hours) Jam"
+      } else if minutes > 0 {
+        return "\(minutes) Menit"
+      } else {
+        return "Sebentar Lagi"
+      }
     }
 
     // Check if train has already arrived
@@ -270,7 +310,7 @@ struct TrainCard: View {
       return "Sudah Tiba"
     }
 
-    // Calculate time remaining until arrival
+    // Calculate time remaining until arrival (train is currently moving)
     let timeInterval = arrival.timeIntervalSince(now)
     let totalMinutes = Int(timeInterval / 60)
 
@@ -373,7 +413,8 @@ struct TrainCard: View {
     Color.gray.opacity(0.2)
       .ignoresSafeArea()
 
-    TrainCard(train: train, journeyData: nil, onDelete: {}, compactMode: false)
+    TrainCard(train: train, journeyData: nil, onDelete: {}, compactMode: true)
+      .environment(Router.previewRouter())
       .padding()
   }
 }

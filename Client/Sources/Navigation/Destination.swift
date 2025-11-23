@@ -35,7 +35,7 @@ enum SheetDestination: Hashable, CustomStringConvertible {
   case addTrain
   case shareJourney  // Add this new case
   case alarmConfiguration
-  case stationSchedule
+  case stationExplorer  // Unified view for search and schedule
 
   var description: String {
     switch self {
@@ -43,7 +43,7 @@ enum SheetDestination: Hashable, CustomStringConvertible {
     case .addTrain: ".addTrain"
     case .shareJourney: ".shareJourney"  // Add this
     case .alarmConfiguration: ".alarmConfiguration"
-    case .stationSchedule: ".stationSchedule"
+    case .stationExplorer: ".stationExplorer"
     }
   }
 }
@@ -55,7 +55,7 @@ extension SheetDestination: Identifiable {
     case .addTrain: "addTrain"
     case .shareJourney: "shareJourney"  // Add this
     case .alarmConfiguration: "alarmConfiguration"
-    case .stationSchedule: "stationSchedule"
+    case .stationExplorer: "stationExplorer"
     }
   }
 }

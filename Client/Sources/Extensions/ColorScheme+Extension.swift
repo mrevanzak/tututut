@@ -18,6 +18,15 @@ extension ColorScheme {
     }
   }
   
+  var notYetDepart: String {
+    switch self {
+    case .dark:
+      return "NotYetDepartDark"
+    default:
+      return "NotYetDepartLight"
+    }
+  }
+  
   var keretaBackground: String {
     switch self {
     case .dark:

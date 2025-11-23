@@ -51,10 +51,16 @@ struct StationScheduleView: View {
   @Environment(\.showToast) private var showToast
   @Environment(Router.self) private var router
   
+  // Mode determines the navigation button and behavior
+  let mode: StationExplorerMode
+  // Optional callback for back navigation (used when mode is .search)
+  let onBack: (() -> Void)?
+  
   @State private var trains: [TrainStopService.TrainAtStation] = []
   @State private var groupedTrains: [GroupedTrainSchedule] = []
   @State private var filteredGroupedTrains: [GroupedTrainSchedule] = []
   @State private var isLoading: Bool = false
+  @State private var isSelectingTrain: Bool = false
   @State private var expandedGroups: Set<String> = []
   @State private var selectedTrain: String = "Semua Kereta"
   
@@ -63,12 +69,36 @@ struct StationScheduleView: View {
   private let trainStopService = TrainStopService()
   private let journeyService = JourneyService()
   
+  init(mode: StationExplorerMode = .direct, onBack: (() -> Void)? = nil) {
+    self.mode = mode
+    self.onBack = onBack
+  }
+  
   var body: some View {
     ZStack {
       if let station = mapStore.selectedStationForSchedule {
         contentView(for: station)
       } else {
         emptyStateView
+      }
+      
+      // Loading overlay when selecting train
+      if isSelectingTrain {
+        Color.black.opacity(0.4)
+          .ignoresSafeArea()
+        
+        VStack(spacing: 16) {
+          ProgressView()
+            .controlSize(.large)
+            .tint(.white)
+          
+          Text("Memuat data kereta...")
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(.white)
+        }
+        .padding(24)
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
       }
     }
     .safeAreaInset(edge: .top) {
@@ -162,9 +192,15 @@ struct StationScheduleView: View {
       Spacer()
       
       Button {
-        dismiss()
+        if mode == .search, let onBack = onBack {
+          // In search mode with onBack callback, go back to search
+          onBack()
+        } else {
+          // In direct mode or no callback, dismiss the sheet
+          dismiss()
+        }
       } label: {
-        Image(systemName: "xmark.circle.fill")
+        Image(systemName: mode == .search ? "chevron.left.circle.fill" : "xmark.circle.fill")
           .symbolRenderingMode(.palette)
           .foregroundStyle(.textSecondary, .primary)
           .font(.largeTitle)
@@ -351,6 +387,9 @@ struct StationScheduleView: View {
   
   private func handleTrainSelection(_ train: TrainStopService.TrainAtStation) {
     Task {
+      isSelectingTrain = true
+      defer { isSelectingTrain = false }
+      
       do {
         // Get the selected station as departure
         guard let currentStation = mapStore.selectedStationForSchedule,
@@ -473,7 +512,6 @@ struct StationScheduleView: View {
             alarmOffsetMinutes: nil
           )
           dismiss()
-          showToast("Melacak \(train.trainName) ke \(toStation.name)")
         }
         
       } catch {
@@ -728,7 +766,7 @@ private struct TimeLabel: View {
 // MARK: - Preview
 
 #Preview("Station Schedule View") {
-  let store = TrainMapStore.preview
+  @Previewable @State var store = TrainMapStore.preview
   store.selectedStationForSchedule = Station(
     id: "102",
     code: "MRI",
@@ -738,6 +776,5 @@ private struct TimeLabel: View {
   )
   
   return StationScheduleView()
-    .environment(Router.previewRouter())
     .environment(store)
 }
