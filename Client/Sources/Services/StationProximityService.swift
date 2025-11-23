@@ -33,6 +33,10 @@ final class StationProximityService: NSObject, Sendable {
   private var lastUserLocation: CLLocationCoordinate2D?
   private var hasActiveJourney: Bool = false
   
+  // Cache for nearest stations to avoid expensive recalculations
+  private var cachedNearestStations: [Station] = []
+  private var cachedNearestStationIds: Set<String> = []
+  
   // MARK: - Public Location Access
   
   /// Get current user location coordinate
@@ -183,24 +187,22 @@ final class StationProximityService: NSObject, Sendable {
   // MARK: - Public Helper Methods
   
   /// Get the 3 nearest stations to the user's current location
+  /// Returns cached results from geofencing calculations to avoid expensive recalculation
   /// Returns empty array if location is not available
   func getNearestStations(from stations: [Station], limit: Int = 3) -> [Station] {
-    guard let userLocation = currentUserCLLocation else {
-      return []
+    // Return cached results if available (already calculated during geofencing setup)
+    if !cachedNearestStations.isEmpty {
+      return Array(cachedNearestStations.prefix(limit))
     }
     
-    return stations
-      .map { station -> (station: Station, distance: CLLocationDistance) in
-        let stationLocation = CLLocation(
-          latitude: station.position.latitude,
-          longitude: station.position.longitude
-        )
-        let distance = userLocation.distance(from: stationLocation)
-        return (station, distance)
-      }
-      .sorted { $0.distance < $1.distance }
-      .prefix(limit)
-      .map { $0.station }
+    // Fallback: No cache available (location not ready yet)
+    return []
+  }
+  
+  /// Check if a station is one of the nearest stations (O(1) lookup)
+  func isNearestStation(_ station: Station) -> Bool {
+    let identifier = station.id ?? station.code
+    return cachedNearestStationIds.contains(identifier)
   }
   
   // MARK: - Private Methods
@@ -234,6 +236,10 @@ final class StationProximityService: NSObject, Sendable {
     // Clear existing proximity notifications
     await clearProximityNotifications()
     
+    // Cache the nearest stations for UI performance (top 3 for display)
+    cachedNearestStations = Array(sortedStations.prefix(3).map { $0.station })
+    cachedNearestStationIds = Set(cachedNearestStations.map { $0.id ?? $0.code })
+    
     // Start monitoring regions and create notifications for closest stations
     for (station, distance) in sortedStations {
       startMonitoringRegion(for: station)
@@ -241,6 +247,7 @@ final class StationProximityService: NSObject, Sendable {
     }
     
     logger.info("Updated proximity triggers for \(sortedStations.count) closest stations")
+    logger.info("Cached \(self.cachedNearestStations.count) nearest stations for UI")
     logger.info("Monitoring \(self.locationManager.monitoredRegions.count) regions in background")
   }
   

@@ -162,14 +162,12 @@ struct AddTrainView: View {
   // MARK: - Station List View
   
   private func stationListView() -> some View {
-    let nearestStations = viewModel.currentStep == .departure
-      ? Set(StationProximityService.shared.getNearestStations(from: store.stations, limit: 3).map { $0.id ?? $0.code })
-      : Set<String>()
-    
-    let sortedStations = sortStationsWithNearest(viewModel.filteredStations, nearestStationIds: nearestStations)
+    let proximityService = StationProximityService.shared
+    let showNearest = viewModel.currentStep == .departure
+    let sortedStations = showNearest ? sortStationsWithNearest(viewModel.filteredStations) : viewModel.filteredStations
     
     return List(sortedStations) { station in
-      let isNearest = nearestStations.contains(station.id ?? station.code)
+      let isNearest = showNearest && proximityService.isNearestStation(station)
       StationRow(station: station, isNearestStation: isNearest)
         .onTapGesture {
           viewModel.selectStation(station)
@@ -185,9 +183,10 @@ struct AddTrainView: View {
     }
   }
   
-  private func sortStationsWithNearest(_ stations: [Station], nearestStationIds: Set<String>) -> [Station] {
-    let nearest = stations.filter { nearestStationIds.contains($0.id ?? $0.code) }
-    let others = stations.filter { !nearestStationIds.contains($0.id ?? $0.code) }
+  private func sortStationsWithNearest(_ stations: [Station]) -> [Station] {
+    let proximityService = StationProximityService.shared
+    let nearest = stations.filter { proximityService.isNearestStation($0) }
+    let others = stations.filter { !proximityService.isNearestStation($0) }
     return nearest + others
   }
   
