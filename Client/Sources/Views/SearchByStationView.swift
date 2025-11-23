@@ -15,10 +15,11 @@ struct SearchByStationView: View {
   
   @State private var searchText: String = ""
   private var filteredStations: [Station] {
-    guard !searchText.isEmpty else { return store.stations }
-    return store.stations.filter {
-      $0.name.localizedCaseInsensitiveContains(searchText)
-    }
+    let stations = searchText.isEmpty 
+      ? store.stations 
+      : store.stations.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    
+    return stations.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
   }
   
   var body: some View {
