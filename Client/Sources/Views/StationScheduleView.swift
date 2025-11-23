@@ -776,7 +776,6 @@ private struct TimeLabel: View {
   )
   
   return StationScheduleView()
-    .environment(Router.previewRouter())
     .environment(store)
     .environment(\.showToast, .preview)
 }
