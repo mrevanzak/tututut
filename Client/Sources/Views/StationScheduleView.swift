@@ -60,6 +60,7 @@ struct StationScheduleView: View {
   @State private var groupedTrains: [GroupedTrainSchedule] = []
   @State private var filteredGroupedTrains: [GroupedTrainSchedule] = []
   @State private var isLoading: Bool = false
+  @State private var isSelectingTrain: Bool = false
   @State private var expandedGroups: Set<String> = []
   @State private var selectedTrain: String = "Semua Kereta"
   
@@ -79,6 +80,25 @@ struct StationScheduleView: View {
         contentView(for: station)
       } else {
         emptyStateView
+      }
+      
+      // Loading overlay when selecting train
+      if isSelectingTrain {
+        Color.black.opacity(0.4)
+          .ignoresSafeArea()
+        
+        VStack(spacing: 16) {
+          ProgressView()
+            .controlSize(.large)
+            .tint(.white)
+          
+          Text("Memuat data kereta...")
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(.white)
+        }
+        .padding(24)
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
       }
     }
     .safeAreaInset(edge: .top) {
@@ -367,6 +387,9 @@ struct StationScheduleView: View {
   
   private func handleTrainSelection(_ train: TrainStopService.TrainAtStation) {
     Task {
+      isSelectingTrain = true
+      defer { isSelectingTrain = false }
+      
       do {
         // Get the selected station as departure
         guard let currentStation = mapStore.selectedStationForSchedule,
@@ -489,7 +512,6 @@ struct StationScheduleView: View {
             alarmOffsetMinutes: nil
           )
           dismiss()
-          showToast("Melacak \(train.trainName) ke \(toStation.name)")
         }
         
       } catch {
