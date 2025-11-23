@@ -5,7 +5,7 @@ struct TrainMapView: View {
   @Environment(TrainMapStore.self) private var mapStore
   @Environment(\.showToast) private var showToast
   @Environment(Router.self) private var router
-
+  
   @State var isFollowing: Bool = true
   @State var focusTrigger: Bool = false
   @State private var userHasPanned: Bool = false
@@ -14,14 +14,14 @@ struct TrainMapView: View {
   @State private var trainStops: [TrainStopService.TrainStop] = []
   @State private var isLoadingStops: Bool = false
   @State private var hasSetInitialPosition: Bool = false
-
+  
   private let trainStopService = TrainStopService()
   private let proximityService = StationProximityService.shared
-
+  
   private var isTrackingTrain: Bool {
     mapStore.liveTrainPosition != nil || mapStore.selectedTrain != nil
   }
-
+  
   var body: some View {
     ZStack(alignment: .topTrailing) {
       mapView
@@ -35,7 +35,7 @@ struct TrainMapView: View {
     }
     .mapControlVisibility(.hidden)
     .mapStyle(mapStyleForCurrentSelection)
-
+    
     // Data refresh on timestamp tick
     .onChange(of: mapStore.lastUpdatedAt) { _, lastUpdatedAt in
       guard let lastUpdatedAt else { return }
@@ -49,7 +49,7 @@ struct TrainMapView: View {
         }
       }
     }
-
+    
     .onChange(of: mapStore.selectedTrain) { _, newTrain in
       if let train = newTrain {
         Task {
@@ -62,14 +62,14 @@ struct TrainMapView: View {
         trainStops = []
       }
     }
-
+    
     // Follow live position updates
     .onChange(of: mapStore.liveTrainPosition) { _, newPosition in
       if let position = newPosition {
         updateCameraPosition(with: [position])
       }
     }
-
+    
     // External "focus" poke from the sheet button
     .onChange(of: focusTrigger) { _, newValue in
       if newValue {
@@ -87,7 +87,7 @@ struct TrainMapView: View {
         }
       }
     }
-
+    
     // Initial load
     .onAppear {
       if let lastUpdatedAt = mapStore.lastUpdatedAt {
@@ -108,11 +108,11 @@ struct TrainMapView: View {
           await loadTrainStops(for: train)
         }
       }
-
+      
       // Set initial camera position based on user location
       setInitialCameraPosition()
     }
-
+    
     // Auto-reset the trigger after it's consumed so it's fire-once
     .task(id: focusTrigger) {
       if focusTrigger {
@@ -127,9 +127,9 @@ struct TrainMapView: View {
       }
     }
   }
-
+  
   // MARK: - Initial Camera Position
-
+  
   private func setInitialCameraPosition() {
     // Only set initial position once
     guard !hasSetInitialPosition else { return }
@@ -184,13 +184,13 @@ struct TrainMapView: View {
     }
     hasSetInitialPosition = true
   }
-
+  
   // MARK: - Train Stop Loading
-
+  
   private func loadTrainStops(for train: ProjectedTrain) async {
     isLoadingStops = true
     defer { isLoadingStops = false }
-
+    
     do {
       if let schedule = try await trainStopService.getTrainSchedule(trainCode: train.code) {
         trainStops = schedule.stops
@@ -205,7 +205,7 @@ struct TrainMapView: View {
       showToast("Failed to load train stops")
     }
   }
-
+  
   // MARK: - Map View Components
   
   private var mapView: some View {
@@ -299,7 +299,7 @@ struct TrainMapView: View {
     )
     .tint(isMoving ? .blue : .red)
   }
-
+  
   private var filteredRoutes: [Route] {
     guard let journeyData = mapStore.selectedJourneyData else {
       return mapStore.routes
@@ -312,7 +312,7 @@ struct TrainMapView: View {
     }
     return mapStore.routes.filter { routeIds.contains($0.id) }
   }
-
+  
   private var filteredStations: [Station] {
     // If we have train stops from the service, use those
     if !trainStops.isEmpty {
@@ -327,22 +327,22 @@ struct TrainMapView: View {
     guard let jd = mapStore.selectedJourneyData else {
       return mapStore.stations
     }
-
+    
     let stopIds = Set(jd.stopStationIds(dwellThreshold: 30))
-
+    
     return mapStore.stations.filter { st in
       let key = st.id ?? st.code
       return stopIds.contains(key)
     }
   }
-
+  
   private var filteredTrains: [ProjectedTrain] {
     guard let selectedTrain = mapStore.selectedTrain else { return [] }
     return [mapStore.liveTrainPosition ?? selectedTrain]
   }
-
+  
   // MARK: - Map style
-
+  
   private var mapStyleForCurrentSelection: MapStyle {
     switch mapStore.selectedMapStyle {
     case .standard:
@@ -352,7 +352,7 @@ struct TrainMapView: View {
       return .hybrid(elevation: .realistic, pointsOfInterest: .all, showsTraffic: false)
     }
   }
-
+  
   // MARK: - Camera
   private var isStationZoomVisible: Bool {
     guard let span = visibleRegionSpan else { return false }
@@ -382,17 +382,20 @@ struct TrainMapView: View {
     withAnimation(.easeInOut(duration: 1.0)) {
       cameraPosition = .region(
         MKCoordinateRegion(
-          center: station.coordinate,
+          center: CLLocationCoordinate2D(
+            latitude: station.coordinate.latitude - 0.04,
+            longitude: station.coordinate.longitude
+          ),
           span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
         )
       )
     }
   }
-
+  
   private func updateCameraPosition(with positions: [ProjectedTrain]) {
     guard !positions.isEmpty else { return }
     guard isFollowing else { return }  // respect user exploration
-
+    
     if positions.count == 1, let train = positions.first {
       withAnimation(.easeInOut(duration: 1.0)) {
         cameraPosition = .region(
@@ -407,32 +410,32 @@ struct TrainMapView: View {
       updateCameraToFitCoordinates(coords)
     }
   }
-
+  
   private func updateCameraToFitCoordinates(_ coordinates: [CLLocationCoordinate2D]) {
     guard !coordinates.isEmpty else { return }
-
+    
     var minLat = coordinates[0].latitude
     var maxLat = coordinates[0].latitude
     var minLon = coordinates[0].longitude
     var maxLon = coordinates[0].longitude
-
+    
     for coord in coordinates {
       minLat = min(minLat, coord.latitude)
       maxLat = max(maxLat, coord.latitude)
       minLon = min(minLon, coord.longitude)
       maxLon = max(maxLon, coord.longitude)
     }
-
+    
     let center = CLLocationCoordinate2D(
       latitude: (minLat + maxLat) / 2,
       longitude: (minLon + maxLon) / 2
     )
-
+    
     let span = MKCoordinateSpan(
       latitudeDelta: max((maxLat - minLat) * 1.5, 0.05),
       longitudeDelta: max((maxLon - minLon) * 1.5, 0.05)
     )
-
+    
     withAnimation(.easeInOut(duration: 1.0)) {
       cameraPosition = .region(MKCoordinateRegion(center: center, span: span))
     }

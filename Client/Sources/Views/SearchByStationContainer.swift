@@ -29,7 +29,7 @@ struct StationExplorerContainer: View {
     ZStack {
       if !showingSchedule {
         SearchByStationView(onStationSelected: handleStationSelected)
-          .padding(.top)
+          .padding(.top, 20)
 //          .transition(.move(edge: .top))
       }
       
