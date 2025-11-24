@@ -69,35 +69,11 @@ struct StationTimelineItem: Identifiable, Equatable {
 
 extension StationTimelineItem {
 
-  private struct TrainStopLite {
-    let stationId: String
-    let stationCode: String
-    let stationName: String
-    let city: String?
-    let arrivalTime: String?
-    let departureTime: String?
-  }
-
-  private struct ParsedStop {
-    let stop: TrainStopLite
-    let arrival: Date?
-    let departure: Date?
-
-    var effectiveDeparture: Date? {
-      departure ?? arrival
-    }
-
-    var effectiveArrival: Date? {
-      arrival ?? departure
-    }
-  }
-
   private enum JourneyPhase {
-    case futureDay
-    case pastDay
-    case beforeDeparture
-    case enRoute
-    case finished
+    case futureDay       // Journey is on a future date
+    case beforeDeparture // Journey is today but hasn't started
+    case enRoute         // Journey is currently in progress
+    case finished        // Journey has completed
   }
 
   static func buildTimelineFromStops(
@@ -112,129 +88,151 @@ extension StationTimelineItem {
         return []
       }
 
-      let calendar = Calendar.current
-      let today = calendar.startOfDay(for: Date())
-      let journeyDay = calendar.startOfDay(for: selectedDate)
-
-      // Parse all times once
-      let parsedStops: [ParsedStop] = schedule.stops.map { stop in
-        // Support both concrete TrainStop types and dictionary-like payloads by accessing via key paths.
-        let lite = TrainStopLite(
-          stationId: stop.stationId,
-          stationCode: stop.stationCode,
-          stationName: stop.stationName,
-          city: stop.city,
-          arrivalTime: stop.arrivalTime,
-          departureTime: stop.departureTime
-        )
-        let arrivalDate = lite.arrivalTime.flatMap { parseTimeString($0, on: selectedDate) }
-        let departureDate = lite.departureTime.flatMap { parseTimeString($0, on: selectedDate) }
-        return ParsedStop(stop: lite, arrival: arrivalDate, departure: departureDate)
+      guard !schedule.stops.isEmpty else { return [] }
+      
+      var calendar = Calendar.current
+      calendar.timeZone = TimeZone.current // Use local timezone
+      let now = Date()
+      let today = calendar.startOfDay(for: now)
+      
+      // CRITICAL: For overnight trains, we need to determine the actual journey start day
+      // Strategy: Try both selectedDate and (selectedDate - 1 day), pick the one where first departure <= now
+      let selectedDay = calendar.startOfDay(for: selectedDate)
+      let previousDay = calendar.date(byAdding: .day, value: -1, to: selectedDay) ?? selectedDay
+      
+      // Get first departure time string to test both scenarios
+      let firstDepartureTimeStr = schedule.stops.first?.departureTime ?? schedule.stops.first?.arrivalTime
+      guard let firstTimeStr = firstDepartureTimeStr else { return [] }
+      
+      // Parse first departure on both days
+      let firstDepOnSelected = parseTimeString(firstTimeStr, on: selectedDay)
+      let firstDepOnPrevious = parseTimeString(firstTimeStr, on: previousDay)
+      
+      // Determine actual journey day:
+      // If first departure on previous day is in the past but on selected day is in the future,
+      // the journey actually started on previous day (overnight scenario)
+      let journeyDay: Date
+      if let prevDep = firstDepOnPrevious, let selDep = firstDepOnSelected,
+         prevDep <= now && selDep > now {
+        // Journey started yesterday (overnight train)
+        journeyDay = previousDay
+        print("🌙 Overnight train detected: journey started on \(previousDay)")
+      } else {
+        // Normal case: journey is on selected day
+        journeyDay = selectedDay
       }
-
+      
+      print("🕐 now: \(now), journeyDay: \(journeyDay), today: \(today), selectedDate: \(selectedDate), timezone: \(calendar.timeZone.identifier)")
+      
+      // Parse all stops with their times, handling overnight journeys
+      var parsedStops: [(stop: TrainStopService.TrainStop, arrival: Date?, departure: Date?)] = []
+      var currentDay = journeyDay
+      var previousTime: Date? = nil
+      
+      for stop in schedule.stops {
+        let arrivalDate = stop.arrivalTime.flatMap { parseTimeString($0, on: currentDay) }
+        let departureDate = stop.departureTime.flatMap { parseTimeString($0, on: currentDay) }
+        
+        let effectiveTime = departureDate ?? arrivalDate
+        
+        // Detect day rollover: if current time is earlier than previous time, we crossed midnight
+        if let prevTime = previousTime, let currTime = effectiveTime, currTime < prevTime {
+          currentDay = calendar.date(byAdding: .day, value: 1, to: currentDay) ?? currentDay
+          // Re-parse times on new day
+          let newArrival = stop.arrivalTime.flatMap { parseTimeString($0, on: currentDay) }
+          let newDeparture = stop.departureTime.flatMap { parseTimeString($0, on: currentDay) }
+          parsedStops.append((stop, newArrival, newDeparture))
+          previousTime = newDeparture ?? newArrival
+        } else {
+          parsedStops.append((stop, arrivalDate, departureDate))
+          previousTime = effectiveTime
+        }
+      }
+      
       guard !parsedStops.isEmpty else { return [] }
 
-      // First and last meaningful times
-      let firstTime =
-        parsedStops
-        .compactMap { $0.effectiveDeparture ?? $0.effectiveArrival }
-        .first
-
-      let lastTime =
-        parsedStops
-        .compactMap { $0.effectiveArrival ?? $0.effectiveDeparture }
-        .last
-
-      let now = Date()
-
-      // Determine journey phase
-      var phase: JourneyPhase
-      if journeyDay > today {
-        phase = .futureDay
-      } else if journeyDay < today {
-        phase = .pastDay
+      // Get first departure and last arrival
+      let firstDeparture = parsedStops.first?.departure
+      let lastArrival = parsedStops.last?.arrival
+      
+      // Determine journey status
+      // CRITICAL: Use selectedDay (user's intent) for future check, not journeyDay (calculated start)
+      let journeyStatus: JourneyPhase
+      if selectedDay > today {
+        // User selected a future date - journey is in the future
+        journeyStatus = .futureDay
+      } else if let firstDep = firstDeparture, now < firstDep {
+        // Today but hasn't started
+        journeyStatus = .beforeDeparture
+      } else if let lastArr = lastArrival, now >= lastArr {
+        // Journey completed
+        journeyStatus = .finished
       } else {
-        // Today
-        if let first = firstTime, let last = lastTime {
-          if now < first {
-            phase = .beforeDeparture
-          } else if now >= last {
-            // 🔴 This is the case you mentioned: train has fully completed the route
-            phase = .finished
-          } else {
-            phase = .enRoute
+        // Currently in journey
+        journeyStatus = .enRoute
+      }
+      
+      // Find current station index (only matters if enRoute)
+      var currentStationIndex: Int? = nil
+      if case .enRoute = journeyStatus {
+        // Find the segment we're currently in
+        for i in 0..<parsedStops.count - 1 {
+          let currentDeparture = parsedStops[i].departure
+          let nextArrival = parsedStops[i + 1].arrival
+          
+          if let dep = currentDeparture, let arr = nextArrival, now >= dep && now < arr {
+            currentStationIndex = i
+            break
           }
-        } else {
-          // If no times, choose based on now vs today (should be today); default to future
-          phase = now < today ? .pastDay : .futureDay
+        }
+        
+        // Fallback: find last departed station
+        if currentStationIndex == nil {
+          currentStationIndex = parsedStops.lastIndex { parsed in
+            if let dep = parsed.departure {
+              return now >= dep
+            }
+            return false
+          }
         }
       }
-
-      // Determine current index if enRoute
-      let currentIndex: Int? = {
-        guard case .enRoute = phase else { return nil }
-
-        // Try to find segment where "now" is between departure of i and arrival of i+1
-        for (index, stop) in parsedStops.enumerated() where index < parsedStops.count - 1 {
-          let currentDeparture = parsedStops[index].effectiveDeparture
-          let nextArrival = parsedStops[index + 1].effectiveArrival
-
-          if let dep = currentDeparture, let arr = nextArrival,
-            now >= dep && now < arr
-          {
-            return index
-          }
-        }
-
-        // Fallback: last stop whose effectiveDeparture is <= now
-        if let idx = parsedStops.lastIndex(where: {
-          ($0.effectiveDeparture ?? $0.effectiveArrival ?? .distantPast) <= now
-        }) {
-          return idx
-        }
-
-        return nil
-      }()
 
       var items: [StationTimelineItem] = []
 
       for (index, parsed) in parsedStops.enumerated() {
         let stop = parsed.stop
-        let arrivalDate = parsed.arrival
-        let departureDate = parsed.departure
-
-        // Decide state purely from phase + currentIndex
-        let state: StationState = {
-          switch phase {
-          case .futureDay, .beforeDeparture:
-            return .upcoming
-          case .pastDay, .finished:
-            return .completed
-          case .enRoute:
-            guard let currentIndex = currentIndex else {
-              return .upcoming
-            }
-            if index < currentIndex {
-              return .completed
-            } else if index == currentIndex {
-              return .current
+        
+        // Determine state
+        let state: StationState
+        switch journeyStatus {
+        case .futureDay, .beforeDeparture:
+          state = .upcoming
+        case .finished:
+          state = .completed
+        case .enRoute:
+          if let currentIdx = currentStationIndex {
+            if index < currentIdx {
+              state = .completed
+            } else if index == currentIdx {
+              state = .current
             } else {
-              return .upcoming
+              state = .upcoming
             }
+          } else {
+            state = .upcoming
           }
-        }()
-
-        // Progress to next
+        }
+        
+        // Calculate progress to next station
         var progressToNext: Double? = nil
         if index < parsedStops.count - 1 {
-          let nextStop = parsedStops[index + 1]
-          let fromTime = parsed.effectiveDeparture ?? parsed.effectiveArrival
-          let toTime = nextStop.effectiveArrival ?? nextStop.effectiveDeparture
-
-          switch phase {
+          let fromTime = parsed.departure ?? parsed.arrival
+          let toTime = parsedStops[index + 1].arrival ?? parsedStops[index + 1].departure
+          
+          switch journeyStatus {
           case .futureDay, .beforeDeparture:
             progressToNext = 0.0
-          case .pastDay, .finished:
+          case .finished:
             progressToNext = 1.0
           case .enRoute:
             progressToNext = calculateProgress(from: fromTime, to: toTime)
@@ -254,20 +252,15 @@ extension StationTimelineItem {
           StationTimelineItem(
             id: stop.stationId,
             station: station,
-            arrivalTime: arrivalDate,
-            departureTime: departureDate,
+            arrivalTime: parsed.arrival,
+            departureTime: parsed.departure,
             state: state,
             isStop: true,
             progressToNext: progressToNext
           )
         )
       }
-
-      // NOTE:
-      // If you still want to use currentSegmentFromStationId or userDestinationStationId
-      // for *visual emphasis* (e.g. bolding the user’s segment), do it in the View layer
-      // or with extra properties, not by mutating `state`.
-
+      
       return items
 
     } catch {
@@ -276,20 +269,20 @@ extension StationTimelineItem {
     }
   }
 
-  /// Parse time string in "HH:MM:SS" format to Date (normalized to selected date)
+  /// Parse time string in "HH:MM:SS" format to Date on the given day
   private static func parseTimeString(_ timeString: String, on date: Date) -> Date? {
     let components = timeString.split(separator: ":")
     guard components.count >= 2,
       let hour = Int(components[0]),
-      let minute = Int(components[1]),
-      let second = Int(components[2])
+      let minute = Int(components[1])
     else {
       return nil
     }
-
-    let calendar = Calendar.current
-    let startOfDay = calendar.startOfDay(for: date)
-
-    return calendar.date(bySettingHour: hour, minute: minute, second: second, of: startOfDay)
+    
+    let second = components.count >= 3 ? Int(components[2]) ?? 0 : 0
+    
+    var calendar = Calendar.current
+    calendar.timeZone = TimeZone.current // Use local timezone
+    return calendar.date(bySettingHour: hour, minute: minute, second: second, of: date)
   }
 }
