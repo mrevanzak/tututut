@@ -96,7 +96,7 @@ extension StationTimelineItem {
       let today = calendar.startOfDay(for: now)
       
       // CRITICAL: For overnight trains, we need to determine the actual journey start day
-      // Strategy: Try both selectedDate and (selectedDate - 1 day), pick the one where first departure <= now
+      // Strategy: Only check for overnight if selected date is today or past
       let selectedDay = calendar.startOfDay(for: selectedDate)
       let previousDay = calendar.date(byAdding: .day, value: -1, to: selectedDay) ?? selectedDay
       
@@ -104,21 +104,71 @@ extension StationTimelineItem {
       let firstDepartureTimeStr = schedule.stops.first?.departureTime ?? schedule.stops.first?.arrivalTime
       guard let firstTimeStr = firstDepartureTimeStr else { return [] }
       
-      // Parse first departure on both days
+      // Parse first departure on selected day
       let firstDepOnSelected = parseTimeString(firstTimeStr, on: selectedDay)
-      let firstDepOnPrevious = parseTimeString(firstTimeStr, on: previousDay)
       
       // Determine actual journey day:
-      // If first departure on previous day is in the past but on selected day is in the future,
-      // the journey actually started on previous day (overnight scenario)
       let journeyDay: Date
-      if let prevDep = firstDepOnPrevious, let selDep = firstDepOnSelected,
-         prevDep <= now && selDep > now {
-        // Journey started yesterday (overnight train)
-        journeyDay = previousDay
-        print("🌙 Overnight train detected: journey started on \(previousDay)")
+      if selectedDay == today {
+        // For today's date, check if this is an overnight train
+        // Strategy: If first departure is future today but happened yesterday,
+        // check if journey would still be ongoing (not finished)
+        
+        guard let firstDepOnSelected = firstDepOnSelected else {
+          journeyDay = selectedDay
+          return []
+        }
+        
+        if firstDepOnSelected > now {
+          // First stop is future on selected day - could be overnight or future train
+          let firstDepOnPrevious = parseTimeString(firstTimeStr, on: previousDay)
+          
+          if let prevDep = firstDepOnPrevious, prevDep <= now {
+            // Train departed yesterday - now check if any stops are happening NOW
+            // Parse times on previous day with rollover detection for overnight
+            var testDay = previousDay
+            var prevTime: Date? = nil
+            var foundCurrentStop = false
+            
+            for stop in schedule.stops {
+              let timeStr = stop.departureTime ?? stop.arrivalTime
+              guard let time = timeStr else { continue }
+              
+              var parsed = parseTimeString(time, on: testDay)
+              
+              // Detect rollover
+              if let prev = prevTime, let curr = parsed, curr < prev {
+                testDay = calendar.date(byAdding: .day, value: 1, to: testDay) ?? testDay
+                parsed = parseTimeString(time, on: testDay)
+              }
+              
+              prevTime = parsed
+              
+              // Check if this stop is in the future (journey still ongoing)
+              if let parsed = parsed, parsed > now {
+                foundCurrentStop = true
+                break
+              }
+            }
+            
+            if foundCurrentStop {
+              // Journey from yesterday is still ongoing
+              journeyDay = previousDay
+              print("🌙 Overnight train detected: journey started on \(previousDay)")
+            } else {
+              // Yesterday's journey finished, this is a new future train
+              journeyDay = selectedDay
+            }
+          } else {
+            // Future train today (didn't run yesterday or didn't reach this time yet)
+            journeyDay = selectedDay
+          }
+        } else {
+          // First stop already passed today - normal train
+          journeyDay = selectedDay
+        }
       } else {
-        // Normal case: journey is on selected day
+        // Past or future date: use selected day as-is (no overnight detection needed)
         journeyDay = selectedDay
       }
       
@@ -247,6 +297,8 @@ extension StationTimelineItem {
           position: Position(latitude: 0, longitude: 0),
           city: stop.city
         )
+        
+        print(state)
 
         items.append(
           StationTimelineItem(
