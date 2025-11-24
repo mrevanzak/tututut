@@ -10,7 +10,6 @@ struct TrainMapView: View {
   @State var focusTrigger: Bool = false
   @State private var userHasPanned: Bool = false
   @State private var cameraPosition: MapCameraPosition = .automatic
-  @State private var visibleRegionSpan: MKCoordinateSpan?
   @State private var trainStops: [TrainStopService.TrainStop] = []
   @State private var isLoadingStops: Bool = false
   @State private var hasSetInitialPosition: Bool = false
@@ -230,21 +229,15 @@ struct TrainMapView: View {
         routePolyline(for: route)
       }
       
-      // Stations
-      if shouldShowStations {
-        ForEach(filteredStations) { station in
-          stationAnnotation(for: station)
-        }
+      // Stations (always visible)
+      ForEach(filteredStations) { station in
+        stationAnnotation(for: station)
       }
       
       // Live train(s)
       ForEach(filteredTrains) { train in
         trainMarker(for: train)
       }
-    }
-    .onMapCameraChange(frequency: .onEnd) { context in
-      let region = context.region
-      visibleRegionSpan = region.span
     }
     .simultaneousGesture(
       DragGesture(minimumDistance: 0).onChanged { _ in
@@ -255,9 +248,7 @@ struct TrainMapView: View {
     )
   }
   
-  private var shouldShowStations: Bool {
-    isTrackingTrain || (!isTrackingTrain && isStationZoomVisible)
-  }
+  private var shouldShowStations: Bool { true }
   
   @MapContentBuilder
   private func routePolyline(for route: Route) -> some MapContent {
@@ -366,10 +357,6 @@ struct TrainMapView: View {
   }
   
   // MARK: - Camera
-  private var isStationZoomVisible: Bool {
-    guard let span = visibleRegionSpan else { return false }
-    return span.latitudeDelta <= 2.0
-  }
   
   private func focusOnUserLocation(_ userLocation: CLLocationCoordinate2D) {
     print("📍 Focusing camera on user location: \(userLocation.latitude), \(userLocation.longitude)")
