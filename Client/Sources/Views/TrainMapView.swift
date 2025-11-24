@@ -81,7 +81,7 @@ struct TrainMapView: View {
           updateCameraPosition(with: [position])
         } else if let train = mapStore.selectedTrain {
           updateCameraPosition(with: [train])
-        } else if let userLocation = proximityService.currentUserLocation {
+        } else if !isTrackingTrain, let userLocation = proximityService.currentUserLocation {
           // Focus on user location when no train is being tracked
           focusOnUserLocation(userLocation)
         }
@@ -148,7 +148,7 @@ struct TrainMapView: View {
     }
     
     // Priority 2: Use user's current location to show their city/area
-    if let userLocation = proximityService.currentUserLocation {
+    if !isTrackingTrain, let userLocation = proximityService.currentUserLocation {
       print("📍 Setting initial camera to user location: \(userLocation.latitude), \(userLocation.longitude)")
       
       withAnimation(.easeInOut(duration: 1.0)) {
@@ -211,7 +211,19 @@ struct TrainMapView: View {
   private var mapView: some View {
     Map(position: $cameraPosition) {
       // User location indicator (optional - shows blue dot)
-      UserAnnotation()
+      if !isTrackingTrain, let userLocation = proximityService.currentUserLocation {
+        Annotation("Anda", coordinate: userLocation) {
+          Image(systemName: "figure.arms.open")
+            .font(.system(size: 18, weight: .bold))
+            .foregroundStyle(.highlight)
+            .padding(6)
+//            .background(
+//              Circle()
+//                .fill(Color.white)
+//                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+//            )
+        }
+      }
       
       // Routes
       ForEach(filteredRoutes) { route in
