@@ -212,7 +212,9 @@ struct TrainMapView: View {
   private var mapView: some View {
     Map(position: $cameraPosition) {
       // User location indicator (optional - shows blue dot)
-      UserAnnotation()
+      if !isTrackingTrain {
+        UserAnnotation()
+      }
       
       // Routes
       ForEach(filteredRoutes) { route in
@@ -456,3 +458,4 @@ struct TrainMapView: View {
     }
   }
 }
+

@@ -45,7 +45,7 @@ struct JourneyStoryStaticView: View {
                         if let date = journeyDate {
                             HStack {
                                 Text(date)
-                                    .font(.system(size: 14 * scaleFactor, weight: .medium))
+                                    .font(.system(size: 8 * scaleFactor, weight: .medium))
                                     .foregroundColor(.highlight)
                                 Spacer()
                             }
