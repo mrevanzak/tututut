@@ -21,6 +21,30 @@ struct ShareScreen: View {
     @State private var captureError: String? = nil
     @State private var showShareConfirmation: Bool = false
 
+    // MARK: - Journey metadata (duration & date)
+    private var journeyDurationText: String? {
+        guard let journey = mapStore.selectedJourneyData else { return nil }
+        // Compute duration from user-selected times
+        let interval = max(0, journey.userSelectedArrivalTime.timeIntervalSince(journey.userSelectedDepartureTime))
+        let minutes = Int(interval / 60)
+        let hours = minutes / 60
+        let mins = minutes % 60
+        if hours > 0 {
+            return "\(hours) jam \(mins) menit"
+        } else {
+            return "\(mins) menit"
+        }
+    }
+
+    private var journeyDateText: String? {
+        guard let journey = mapStore.selectedJourneyData else { return nil }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "id_ID")
+        df.dateStyle = .full
+        df.timeStyle = .none
+        return df.string(from: journey.selectedDate)
+    }
+
     var body: some View {
         NavigationStack {
             headerTitleSection
@@ -39,8 +63,10 @@ struct ShareScreen: View {
                             JourneyStoryStaticView(
                                 backgroundImage: bg,
                                 trainName: capturedTrain?.name ?? "My Journey",
-                                fromName: capturedFrom?.name,
-                                toName: capturedTo?.name,
+                                fromName: capturedFrom?.code,
+                                toName: capturedTo?.code,
+                                journeyDuration: journeyDurationText,
+                                journeyDate: journeyDateText,
                                 isForSharing: false  // ← Preview mode
                             )
                             .frame(width: 270, height: 480) // preview size only
@@ -65,16 +91,6 @@ struct ShareScreen: View {
                     }
 
                     HStack {
-//                        Button {
-//                            Task { await captureStaticSnapshot(scale: displayScale) }
-//                        } label: {
-//                            Text("Capture")
-//                                .frame(maxWidth: .infinity)
-//                                .padding()
-//                                .background(Color.gray.opacity(0.15))
-//                                .cornerRadius(10)
-//                        }
-
                         if UIApplication.shared.canOpenURL(instagramURL) {
                             Button(action: { showShareConfirmation = true }) {
                                 Label("Share", systemImage: "square.and.arrow.up")
@@ -123,12 +139,7 @@ struct ShareScreen: View {
                 }
             }
             .padding()
-//            .navigationTitle("Share Journey")
-//            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-//                ToolbarItem(placement: .cancellationAction) {
-//                    Button("Close", action: { dismiss() })
-//                }
             }
             .onAppear {
                 // auto-capture once when view appears
@@ -158,7 +169,7 @@ struct ShareScreen: View {
 
         // freeze the model data (take copies)
         let train = mapStore.liveTrainPosition ?? mapStore.selectedTrain
-        let routes = filteredRoutes
+        let routes = filteredUserJourneyRoutes() // ← Use filtered routes
         let from = fromStation
         let to = toStation
 
@@ -308,8 +319,10 @@ struct ShareScreen: View {
         let staticView = JourneyStoryStaticView(
             backgroundImage: bg,
             trainName: capturedTrain?.name ?? "My Journey",
-            fromName: capturedFrom?.name,
-            toName: capturedTo?.name,
+            fromName: capturedFrom?.code,
+            toName: capturedTo?.code,
+            journeyDuration: journeyDurationText,
+            journeyDate: journeyDateText,
             isForSharing: true  // ← Sharing mode (4x scale)
         )
         
@@ -344,11 +357,11 @@ struct ShareScreen: View {
         }
     }
 
-    // MARK: Helpers (same filtering logic)
+    // MARK: Helpers - UPDATED to filter only user's journey segment
     private var fromStation: Station? {
-        guard let journey = mapStore.selectedJourneyData,
-              let firstStopId = journey.stopStationIds(dwellThreshold: 0).first else { return nil }
-        return mapStore.stations.first { $0.id == firstStopId || $0.code == firstStopId }
+        guard let journey = mapStore.selectedJourneyData else { return nil }
+        let fromStationCode = journey.userSelectedFromStation.code
+        return mapStore.stations.first { $0.code == fromStationCode }
     }
 
     private var toStation: Station? {
@@ -357,6 +370,7 @@ struct ShareScreen: View {
         return mapStore.stations.first { $0.code == toStationCode }
     }
 
+    // OLD METHOD - showed entire train route
     private var filteredRoutes: [Route] {
         guard let journeyData = mapStore.selectedJourneyData else { return [] }
         var routeIds = Set<String>()
@@ -368,6 +382,101 @@ struct ShareScreen: View {
         return mapStore.routes.filter { routeIds.contains($0.id) }
     }
 
+    // NEW METHOD - shows only user's journey segment
+    private func filteredUserJourneyRoutes() -> [Route] {
+        guard let journeyData = mapStore.selectedJourneyData,
+              let fromStation = fromStation,
+              let toStation = toStation else {
+            return []
+        }
+
+        // Get all route IDs used in the journey
+        var routeIds = Set<String>()
+        for segment in journeyData.segments {
+            if let routeId = segment.routeId {
+                routeIds.insert(routeId)
+            }
+        }
+
+        // Get the full routes
+        let fullRoutes = mapStore.routes.filter { routeIds.contains($0.id) }
+
+        // Now trim each route to only include coordinates between from and to stations
+        var trimmedRoutes: [Route] = []
+
+        for route in fullRoutes {
+            let trimmedCoordinates = trimRouteCoordinates(
+                route.coordinates,
+                from: fromStation.coordinate,
+                to: toStation.coordinate
+            )
+            
+            if !trimmedCoordinates.isEmpty {
+                trimmedRoutes.append(
+                    Route(
+                        id: route.id,
+                        name: route.name,
+                        path: trimmedCoordinates.map { Position(latitude: $0.latitude, longitude: $0.longitude) }
+                    )
+                )
+            }
+        }
+
+        return trimmedRoutes
+    }
+
+    // Helper to trim route coordinates to only show segment between two stations
+    private func trimRouteCoordinates(
+        _ coordinates: [CLLocationCoordinate2D],
+        from: CLLocationCoordinate2D,
+        to: CLLocationCoordinate2D
+    ) -> [CLLocationCoordinate2D] {
+        guard coordinates.count > 1 else { return coordinates }
+
+        // Find indices of closest points to from and to stations
+        let fromIndex = findClosestPointIndex(in: coordinates, to: from)
+        let toIndex = findClosestPointIndex(in: coordinates, to: to)
+
+        // Ensure proper ordering
+        let startIndex = min(fromIndex, toIndex)
+        let endIndex = max(fromIndex, toIndex)
+
+        // Return the slice between the two stations
+        guard startIndex < endIndex, endIndex < coordinates.count else {
+            return coordinates
+        }
+
+        return Array(coordinates[startIndex...endIndex])
+    }
+
+    // Find the index of the coordinate closest to the target
+    private func findClosestPointIndex(
+        in coordinates: [CLLocationCoordinate2D],
+        to target: CLLocationCoordinate2D
+    ) -> Int {
+        var closestIndex = 0
+        var minDistance = distance(from: coordinates[0], to: target)
+
+        for (index, coord) in coordinates.enumerated() {
+            let dist = distance(from: coord, to: target)
+            if dist < minDistance {
+                minDistance = dist
+                closestIndex = index
+            }
+        }
+
+        return closestIndex
+    }
+
+    // Calculate distance between two coordinates (simple Euclidean for small distances)
+    private func distance(
+        from: CLLocationCoordinate2D,
+        to: CLLocationCoordinate2D
+    ) -> Double {
+        let lat = from.latitude - to.latitude
+        let lon = from.longitude - to.longitude
+        return sqrt(lat * lat + lon * lon)
+    }
 
     // MARK: - Header
     private var headerTitleSection: some View {

@@ -5,6 +5,8 @@ struct JourneyStoryStaticView: View {
     let trainName: String
     let fromName: String?
     let toName: String?
+    let journeyDuration: String?
+    let journeyDate: String?
     var isForSharing: Bool = false
     
     // Scale factor based on mode
@@ -32,57 +34,65 @@ struct JourneyStoryStaticView: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
-
+                Image("stamp")
+                       .resizable()
+                
                 VStack(spacing: 0) {
-                    // Top section with train name
-                    Text(trainName)
-                        .font(.system(size: 34 * scaleFactor, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .padding(.top, 44 * scaleFactor)
-                        .padding(.horizontal, 20 * scaleFactor)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.8)
-                    
                     Spacer()
 
-                    // Bottom section with journey info
-                    VStack(spacing: 12 * scaleFactor) {
-                        HStack(spacing: 0) {
-                            VStack(alignment: .leading, spacing: 6 * scaleFactor) {
-                                Text("FROM")
-                                    .font(.system(size: 12 * scaleFactor))
-                                    .foregroundStyle(.white.opacity(0.8))
-                                Text(fromName ?? "Start")
-                                    .font(.system(size: 22 * scaleFactor, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.7)
+                    VStack(spacing: 2 * scaleFactor) {
+                        // Journey date - leading aligned
+                        if let date = journeyDate {
+                            HStack {
+                                Text(date)
+                                    .font(.system(size: 14 * scaleFactor, weight: .medium))
+                                    .foregroundColor(.highlight)
+                                Spacer()
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 22 * scaleFactor, weight: .medium))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16 * scaleFactor)
-
-                            VStack(alignment: .trailing, spacing: 6 * scaleFactor) {
-                                Text("TO")
-                                    .font(.system(size: 12 * scaleFactor))
-                                    .foregroundStyle(.white.opacity(0.8))
-                                Text(toName ?? "Destination")
-                                    .font(.system(size: 22 * scaleFactor, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.7)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .trailing)
                         }
-                        .padding(.horizontal, 28 * scaleFactor)
                         
-                        Text("Shared from Kreta App")
-                            .font(.system(size: 12 * scaleFactor))
-                            .foregroundColor(.white.opacity(0.8))
+                        
+                        // Train name and stations - center aligned
+                        VStack(spacing: 8 * scaleFactor) {
+                            // Stamp image
+//                            Image("stamp")
+                            
+                            // Train name
+                            Text(trainName)
+                                .font(.system(size: 32 * scaleFactor, weight: .bold, design: .rounded))
+                                .foregroundColor(.highlight)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
+                                .multilineTextAlignment(.center)
+                            
+                            // From and To stations
+                            HStack(spacing: 16 * scaleFactor) {
+                                Text(fromName ?? "BD")
+                                    .font(.system(size: 32 * scaleFactor, weight: .bold))
+                                    .foregroundColor(.white)
+                                
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 32 * scaleFactor, weight: .medium))
+                                    .foregroundColor(.white)
+                                
+                                Text(toName ?? "SGU")
+                                    .font(.system(size: 32 * scaleFactor, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        
+                        // Journey duration - trailing aligned
+                        if let duration = journeyDuration {
+                            HStack {
+                                Spacer()
+                                Text("Total Perjalanan: \(duration)")
+                                    .font(.system(size: 8 * scaleFactor, weight: .medium))
+                                    .foregroundColor(.highlight)
+                            }
+                        }
                     }
+                    .frame(maxWidth: 240 * scaleFactor) // Consistent wrapper width
+                    .padding(.horizontal, 28 * scaleFactor)
                     .padding(.bottom, 44 * scaleFactor)
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -92,4 +102,58 @@ struct JourneyStoryStaticView: View {
         .cornerRadius(20 * scaleFactor)
         .compositingGroup()
     }
+}
+
+#Preview("Journey Story Static View") {
+    // Create a simple gradient-backed image for preview purposes
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 270, height: 480))
+    let image = renderer.image { ctx in
+        let bounds = CGRect(x: 0, y: 0, width: 270, height: 480)
+        let gradient = CGGradient(
+            colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            colors: [
+                UIColor.systemTeal.cgColor,
+                UIColor.systemIndigo.cgColor
+            ] as CFArray,
+            locations: [0.0, 1.0]
+        )!
+        ctx.cgContext.drawLinearGradient(
+            gradient,
+            start: CGPoint(x: bounds.midX, y: bounds.minY),
+            end: CGPoint(x: bounds.midX, y: bounds.maxY),
+            options: []
+        )
+
+        // Add a subtle pattern so text contrast is visible
+        UIColor.white.withAlphaComponent(0.08).setFill()
+        for y in stride(from: 0, to: 480, by: 16) {
+            ctx.cgContext.fill(CGRect(x: 0, y: y, width: 270, height: 1))
+        }
+    }
+
+    return VStack(spacing: 24) {
+        JourneyStoryStaticView(
+            backgroundImage: image,
+            trainName: "TURANGGA",
+            fromName: "BD",
+            toName: "SGU",
+            journeyDuration: "8 jam 40 menit",
+            journeyDate: "21 NOVEMBER 2025",
+            isForSharing: false
+        )
+        .previewDisplayName("Normal")
+
+        JourneyStoryStaticView(
+            backgroundImage: image,
+            trainName: "TURANGGA",
+            fromName: "BD",
+            toName: "SGU",
+            journeyDuration: "8 jam 40 menit",
+            journeyDate: "21 NOVEMBER 2025",
+            isForSharing: true
+        )
+        .previewDisplayName("Sharing x4 scale")
+    }
+    .padding()
+    .background(Color.black)
 }

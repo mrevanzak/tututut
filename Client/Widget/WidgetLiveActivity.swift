@@ -448,7 +448,7 @@ struct WidgetLiveActivity: Widget {
             .estimatedTime
           {
             Text(timerInterval: Date()...destinationEstimatedArrival, showsHours: true)
-              .foregroundColor(.highlight)
+              .foregroundColor(.white)
               .multilineTextAlignment(.trailing)
               .frame(width: 64)
           }

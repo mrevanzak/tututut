@@ -10,9 +10,11 @@ struct TrainMapView: View {
   @State var focusTrigger: Bool = false
   @State private var userHasPanned: Bool = false
   @State private var cameraPosition: MapCameraPosition = .automatic
+  @State private var showStationsBasedOnZoom: Bool = false
   @State private var trainStops: [TrainStopService.TrainStop] = []
   @State private var isLoadingStops: Bool = false
   @State private var hasSetInitialPosition: Bool = false
+  @State private var zoomCheckTask: Task<Void, Never>?
   
   private let trainStopService = TrainStopService()
   private let proximityService = StationProximityService.shared
@@ -80,7 +82,7 @@ struct TrainMapView: View {
           updateCameraPosition(with: [position])
         } else if let train = mapStore.selectedTrain {
           updateCameraPosition(with: [train])
-        } else if !isTrackingTrain, let userLocation = proximityService.currentUserLocation {
+        } else if let userLocation = proximityService.currentUserLocation {
           // Focus on user location when no train is being tracked
           focusOnUserLocation(userLocation)
         }
@@ -147,7 +149,7 @@ struct TrainMapView: View {
     }
     
     // Priority 2: Use user's current location to show their city/area
-    if !isTrackingTrain, let userLocation = proximityService.currentUserLocation {
+    if let userLocation = proximityService.currentUserLocation {
       print("📍 Setting initial camera to user location: \(userLocation.latitude), \(userLocation.longitude)")
       
       withAnimation(.easeInOut(duration: 1.0)) {
@@ -210,28 +212,18 @@ struct TrainMapView: View {
   private var mapView: some View {
     Map(position: $cameraPosition) {
       // User location indicator (optional - shows blue dot)
-      if !isTrackingTrain, let userLocation = proximityService.currentUserLocation {
-        Annotation("Anda", coordinate: userLocation) {
-          Image(systemName: "figure.arms.open")
-            .font(.system(size: 18, weight: .bold))
-            .foregroundStyle(.highlight)
-            .padding(6)
-//            .background(
-//              Circle()
-//                .fill(Color.white)
-//                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
-//            )
-        }
-      }
+      UserAnnotation()
       
       // Routes
       ForEach(filteredRoutes) { route in
         routePolyline(for: route)
       }
       
-      // Stations (always visible)
-      ForEach(filteredStations) { station in
-        stationAnnotation(for: station)
+      // Stations
+      if shouldShowStations {
+        ForEach(filteredStations) { station in
+          stationAnnotation(for: station)
+        }
       }
       
       // Live train(s)
@@ -239,23 +231,47 @@ struct TrainMapView: View {
         trainMarker(for: train)
       }
     }
+    .onMapCameraChange(frequency: .continuous) { context in
+      // Cancel previous debounce task
+      zoomCheckTask?.cancel()
+      
+      // Debounce zoom check to avoid performance hits during dragging
+      zoomCheckTask = Task { @MainActor in
+        try? await Task.sleep(for: .milliseconds(150))
+        guard !Task.isCancelled else { return }
+        
+        let region = context.region
+        let zoomThreshold: Double = 2.0
+        let isZoomedIn = region.span.latitudeDelta <= zoomThreshold
+        
+        // Only update if changed to reduce unnecessary re-renders
+        if showStationsBasedOnZoom != isZoomedIn {
+          withAnimation(.easeInOut(duration: 0.2)) {
+            showStationsBasedOnZoom = isZoomedIn
+          }
+        }
+      }
+    }
     .simultaneousGesture(
       DragGesture(minimumDistance: 0).onChanged { _ in
-//        print("Check Trigger gesture")
         userHasPanned = true
         isFollowing = false
       }
     )
   }
   
-  private var shouldShowStations: Bool { true }
+  private var shouldShowStations: Bool {
+    // Always show stations when tracking a train
+    // Otherwise only show when zoomed in enough
+    isTrackingTrain || showStationsBasedOnZoom
+  }
   
   @MapContentBuilder
   private func routePolyline(for route: Route) -> some MapContent {
     let coords = route.coordinates
     if coords.count > 1 {
       MapPolyline(coordinates: coords)
-        .stroke(.blue, lineWidth: 3)
+        .stroke(.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
     }
   }
   
