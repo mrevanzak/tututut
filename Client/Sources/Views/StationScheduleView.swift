@@ -200,7 +200,7 @@ struct StationScheduleView: View {
           dismiss()
         }
       } label: {
-        Image(systemName: mode == .search ? "chevron.left.circle.fill" : "xmark.circle.fill")
+        Image(systemName: "xmark.circle.fill")
           .symbolRenderingMode(.palette)
           .foregroundStyle(.textSecondary, .primary)
           .font(.largeTitle)
