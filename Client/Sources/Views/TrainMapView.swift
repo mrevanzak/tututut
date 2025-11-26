@@ -271,7 +271,7 @@ struct TrainMapView: View {
     let coords = route.coordinates
     if coords.count > 1 {
       MapPolyline(coordinates: coords)
-        .stroke(.blue, lineWidth: 3)
+        .stroke(.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
     }
   }
   

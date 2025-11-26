@@ -366,27 +366,31 @@ enum TrainProjector {
       let route = seg.routeId.flatMap { routesById[$0] }
       if let route {
         // Check if route needs to be reversed based on station proximity
+        // Strategy: Compare distances from BOTH route endpoints to BOTH stations
         var isRouteReversed = false
-        if let firstCoord = route.path.first,
-          route.path.last != nil,
+        if let routeStart = route.path.first,
+          let routeEnd = route.path.last,
           let fromCoord = fromStation?.coordinate,
           let toCoord = toStation?.coordinate
         {
-
-          // Calculate distances from route endpoints to segment stations
-          let distanceFromStartToFrom = CLLocation(
-            latitude: firstCoord.latitude, longitude: firstCoord.longitude
-          )
-          .distance(from: CLLocation(latitude: fromCoord.latitude, longitude: fromCoord.longitude))
-          let distanceFromStartToTo = CLLocation(
-            latitude: firstCoord.latitude, longitude: firstCoord.longitude
-          )
-          .distance(from: CLLocation(latitude: toCoord.latitude, longitude: toCoord.longitude))
-
-          // If route start is closer to the destination station, the route is reversed
-          if distanceFromStartToTo < distanceFromStartToFrom {
-            isRouteReversed = true
-          }
+          // Calculate all four distance combinations
+          let routeStartLoc = CLLocation(latitude: routeStart.latitude, longitude: routeStart.longitude)
+          let routeEndLoc = CLLocation(latitude: routeEnd.latitude, longitude: routeEnd.longitude)
+          let fromStationLoc = CLLocation(latitude: fromCoord.latitude, longitude: fromCoord.longitude)
+          let toStationLoc = CLLocation(latitude: toCoord.latitude, longitude: toCoord.longitude)
+          
+          let startToFrom = routeStartLoc.distance(from: fromStationLoc)
+          let startToTo = routeStartLoc.distance(from: toStationLoc)
+          let endToFrom = routeEndLoc.distance(from: fromStationLoc)
+          let endToTo = routeEndLoc.distance(from: toStationLoc)
+          
+          // Forward direction: route start is near departure, route end is near arrival
+          let forwardScore = startToFrom + endToTo
+          // Reverse direction: route end is near departure, route start is near arrival
+          let reverseScore = endToFrom + startToTo
+          
+          // If reverse has lower total distance, the route is reversed
+          isRouteReversed = reverseScore < forwardScore
         }
 
         let movementWindow = normalizeTimeWindow(
@@ -413,25 +417,29 @@ enum TrainProjector {
           return nil
         }
 
-        // Calculate neighbor point for bearing (also respect reverse direction)
-        let delta = min(defaultBearingSampleCm, route.totalLengthCm)
+        // Calculate bearing using adaptive sampling based on progress
+        // Use smaller delta near endpoints to prevent overshooting
+        let progressFactor = min(clampedProgress, 1.0 - clampedProgress) * 2.0 // 0 at ends, 1 in middle
+        let adaptiveDelta = max(500, min(defaultBearingSampleCm * progressFactor, defaultBearingSampleCm))
+        
         let neighborDistance: Double
         if isRouteReversed {
-          // Moving backward along route, so neighbor is BEFORE current position
-          neighborDistance = max(0, routedDistance - delta)
+          // Moving backward along route: sample behind us
+          neighborDistance = max(0, routedDistance - adaptiveDelta)
         } else {
-          // Moving forward along route, so neighbor is AFTER current position
-          neighborDistance = min(route.totalLengthCm, routedDistance + delta)
+          // Moving forward along route: sample ahead of us
+          neighborDistance = min(route.totalLengthCm, routedDistance + adaptiveDelta)
         }
+        
         let neighborCoordinate = coordinateOnRoute(distanceCm: neighborDistance, route: route)
 
-        // Calculate bearing based on direction of travel
+        // Calculate bearing in direction of travel
         let heading = neighborCoordinate.flatMap { neighbor in
           if isRouteReversed {
-            // Moving backward: bearing from current to neighbor (which is behind us)
-            bearing(from: coordinate, to: neighbor)
+            // Reversed: bearing from neighbor (behind) to current (calculating backwards)
+            bearing(from: neighbor, to: coordinate)
           } else {
-            // Moving forward: bearing from current to neighbor (which is ahead)
+            // Forward: bearing from current to neighbor (ahead)
             bearing(from: coordinate, to: neighbor)
           }
         }
