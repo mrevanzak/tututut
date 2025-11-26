@@ -10,10 +10,11 @@ struct TrainMapView: View {
   @State var focusTrigger: Bool = false
   @State private var userHasPanned: Bool = false
   @State private var cameraPosition: MapCameraPosition = .automatic
-  @State private var visibleRegionSpan: MKCoordinateSpan?
+  @State private var showStationsBasedOnZoom: Bool = false
   @State private var trainStops: [TrainStopService.TrainStop] = []
   @State private var isLoadingStops: Bool = false
   @State private var hasSetInitialPosition: Bool = false
+  @State private var zoomCheckTask: Task<Void, Never>?
   
   private let trainStopService = TrainStopService()
   private let proximityService = StationProximityService.shared
@@ -230,13 +231,29 @@ struct TrainMapView: View {
         trainMarker(for: train)
       }
     }
-    .onMapCameraChange(frequency: .onEnd) { context in
-      let region = context.region
-      visibleRegionSpan = region.span
+    .onMapCameraChange(frequency: .continuous) { context in
+      // Cancel previous debounce task
+      zoomCheckTask?.cancel()
+      
+      // Debounce zoom check to avoid performance hits during dragging
+      zoomCheckTask = Task { @MainActor in
+        try? await Task.sleep(for: .milliseconds(150))
+        guard !Task.isCancelled else { return }
+        
+        let region = context.region
+        let zoomThreshold: Double = 2.0
+        let isZoomedIn = region.span.latitudeDelta <= zoomThreshold
+        
+        // Only update if changed to reduce unnecessary re-renders
+        if showStationsBasedOnZoom != isZoomedIn {
+          withAnimation(.easeInOut(duration: 0.2)) {
+            showStationsBasedOnZoom = isZoomedIn
+          }
+        }
+      }
     }
     .simultaneousGesture(
       DragGesture(minimumDistance: 0).onChanged { _ in
-//        print("Check Trigger gesture")
         userHasPanned = true
         isFollowing = false
       }
@@ -244,7 +261,9 @@ struct TrainMapView: View {
   }
   
   private var shouldShowStations: Bool {
-    isTrackingTrain || (!isTrackingTrain && isStationZoomVisible)
+    // Always show stations when tracking a train
+    // Otherwise only show when zoomed in enough
+    isTrackingTrain || showStationsBasedOnZoom
   }
   
   @MapContentBuilder
@@ -354,10 +373,6 @@ struct TrainMapView: View {
   }
   
   // MARK: - Camera
-  private var isStationZoomVisible: Bool {
-    guard let span = visibleRegionSpan else { return false }
-    return span.latitudeDelta <= 2.0
-  }
   
   private func focusOnUserLocation(_ userLocation: CLLocationCoordinate2D) {
     print("📍 Focusing camera on user location: \(userLocation.latitude), \(userLocation.longitude)")
