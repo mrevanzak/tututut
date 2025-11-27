@@ -16,7 +16,7 @@ final class TrainMapStore {
   @ObservationIgnored private let notificationCenter = UNUserNotificationCenter.current()
 
   var isLoading: Bool = false
-  var selectedMapStyle: MapStyleOption = .hybrid
+    var selectedMapStyle: MapStyleOption = .standard
   var selectedTrain: ProjectedTrain? {
     didSet {
       Task { await persistSelectedTrain() }
