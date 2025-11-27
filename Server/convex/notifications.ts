@@ -33,6 +33,7 @@ export const scheduleArrivalAlert = mutation({
         trainId: args.trainId,
         trainName: args.trainName,
         destinationStation: args.destinationStation,
+        offset,
       }
     );
 
@@ -47,6 +48,7 @@ export const sendArrivalAlert = internalAction({
     trainId: v.union(v.string(), v.null()),
     trainName: v.string(),
     destinationStation: stationValidator,
+    offset: v.number(),
   },
   handler: async (ctx, args) => {
     const stationName = args.destinationStation.name;
@@ -54,7 +56,7 @@ export const sendArrivalAlert = internalAction({
     const deeplink = `kreta://arrival?code=${encodeURIComponent(stationCode)}&name=${encodeURIComponent(stationName)}`;
 
     const title = "Segera Turun!";
-    const body = `2 menit lagi tiba di ${stationName}`;
+    const body = `${Math.round(args.offset / 60)} menit lagi tiba di ${stationName}`;
 
     await ctx.runAction(internal.push.sendArrivalPush, {
       deviceToken: args.deviceToken,
