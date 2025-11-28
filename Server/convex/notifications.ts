@@ -33,6 +33,7 @@ export const scheduleArrivalAlert = mutation({
         trainId: args.trainId,
         trainName: args.trainName,
         destinationStation: args.destinationStation,
+        offset,
       }
     );
 
@@ -47,14 +48,19 @@ export const sendArrivalAlert = internalAction({
     trainId: v.union(v.string(), v.null()),
     trainName: v.string(),
     destinationStation: stationValidator,
+    offset: v.optional(v.number()), // Optional for backward compatibility with pre-deployment scheduled jobs
   },
   handler: async (ctx, args) => {
+    // Resolve offset: use provided value, or fetch from appConfig for backward compatibility
+    const offset =
+      args.offset ?? (await ctx.runQuery(internal.appConfig.getArrivalAlert));
+
     const stationName = args.destinationStation.name;
     const stationCode = args.destinationStation.code;
     const deeplink = `kreta://arrival?code=${encodeURIComponent(stationCode)}&name=${encodeURIComponent(stationName)}`;
 
     const title = "Segera Turun!";
-    const body = `2 menit lagi tiba di ${stationName}`;
+    const body = `${Math.round(offset / 60)} menit lagi tiba di ${stationName}`;
 
     await ctx.runAction(internal.push.sendArrivalPush, {
       deviceToken: args.deviceToken,
