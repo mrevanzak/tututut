@@ -73,25 +73,12 @@ struct PermissionsOnboardingScreen: View {
         .buttonStyle(ScaleButtonStyle())
         .disabled(isRequestingPermission)
 
-        // Secondary Button (Skip)
-        if shouldShowSkipButton {
-          Button {
-            withAnimation {
-              currentPage = totalPages - 1
-            }
-          } label: {
-            Text("Ingatkan Nanti")
-              .font(.subheadline)
-              .foregroundStyle(.secondary)
-          }
-          .buttonStyle(ScaleButtonStyle())
-          .transition(.opacity)
-        } else {
-          // Invisible placeholder to maintain layout height
-          Text(" ")
-            .font(.subheadline)
-            .hidden()
-        }
+        // Secondary Button (Skip) - REMOVED for App Store Compliance
+        // We must not provide an exit path before the system permission request.
+        // The user must proceed to the system prompt (where they can still deny).
+        Text(" ")
+          .font(.subheadline)
+          .hidden()
       }
       .padding(.horizontal, 24)
       .padding(.bottom, 16)
@@ -109,7 +96,8 @@ struct PermissionsOnboardingScreen: View {
     CleanContentPage(
       icon: .image(.logo),
       title: "Sebelum memulai...",
-      description: "Kreta membutuhkan beberapa izin akses.\nKamu bisa mengaturnya lagi melalui Settings."
+      description:
+        "Kreta membutuhkan beberapa izin akses.\nKamu bisa mengaturnya lagi melalui Settings."
     )
   }
 
@@ -118,7 +106,8 @@ struct PermissionsOnboardingScreen: View {
       icon: .image(.location),
       title: "Akses Lokasi",
       description: "Agar kami bisa memandu berdasarkan\nlokasi kamu.",
-      status: locationStatus == .authorizedAlways || locationStatus == .authorizedWhenInUse ? .authorized : .none
+      status: locationStatus == .authorizedAlways || locationStatus == .authorizedWhenInUse
+        ? .authorized : .none
     )
   }
 
@@ -155,17 +144,7 @@ struct PermissionsOnboardingScreen: View {
     if currentPage == totalPages - 1 {
       return "Mulai Sekarang"
     }
-    
-    switch currentPage {
-    case 1: return locationStatus == .authorizedAlways || locationStatus == .authorizedWhenInUse ? "Lanjutkan" : "Izinkan Lokasi"
-    case 2: return alarmStatus == .authorized ? "Lanjutkan" : "Izinkan Alarm"
-    case 3: return notificationStatus == .authorized ? "Lanjutkan" : "Izinkan Notifikasi"
-    default: return "Lanjutkan"
-    }
-  }
-
-  private var shouldShowSkipButton: Bool {
-    currentPage > 0 && currentPage < totalPages - 1
+    return "Lanjut"
   }
 
   private var isRequestingPermission: Bool {
@@ -264,13 +243,13 @@ private struct CleanContentPage: View {
   let description: String
   var status: PermissionsOnboardingScreen.OnboardingContent.PermissionStatus = .none
   var isFinal: Bool = false
-  
+
   @State private var appear = false
-  
+
   var body: some View {
     VStack(spacing: 0) {
       Spacer()
-      
+
       // Icon
       Group {
         switch icon {
@@ -290,7 +269,7 @@ private struct CleanContentPage: View {
       .opacity(appear ? 1.0 : 0.0)
       .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1), value: appear)
       .padding(.bottom, 32)
-      
+
       // Text Content
       VStack(spacing: 12) {
         Text(title)
@@ -301,7 +280,7 @@ private struct CleanContentPage: View {
           .opacity(appear ? 1.0 : 0.0)
           .offset(y: appear ? 0 : 10)
           .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.2), value: appear)
-        
+
         Text(description)
           .font(.body)
           .foregroundStyle(.secondary)
@@ -312,7 +291,7 @@ private struct CleanContentPage: View {
           .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.3), value: appear)
       }
       .padding(.horizontal, 32)
-      
+
       // Status Indicator
       if status == .authorized {
         HStack(spacing: 6) {
@@ -324,9 +303,9 @@ private struct CleanContentPage: View {
         .padding(.top, 24)
         .transition(.scale.combined(with: .opacity))
       }
-      
+
       Spacer()
-      Spacer() // Push content up slightly visually
+      Spacer()  // Push content up slightly visually
     }
     .onAppear {
       appear = true
