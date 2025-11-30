@@ -50,20 +50,20 @@ struct StationScheduleView: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(\.showToast) private var showToast
   @Environment(Router.self) private var router
-
+  
   // Mode determines the navigation button and behavior
   let mode: StationExplorerMode
   // Optional callback for back navigation (used when mode is .search)
   let onBack: (() -> Void)?
-
+  
   @State private var trains: [TrainStopService.TrainAtStation] = []
   @State private var groupedTrains: [GroupedTrainSchedule] = []
   @State private var filteredGroupedTrains: [GroupedTrainSchedule] = []
   @State private var isLoading: Bool = false
   @State private var isSelectingTrain: Bool = false
+  @State private var isPresentingAlarmConfiguration: Bool = false
   @State private var expandedGroups: Set<String> = []
   @State private var selectedTrain: String = "Semua Kereta"
-
   @State var uniqueTrainNames: [String] = []
 
   private let trainStopService = TrainStopService()
@@ -128,6 +128,9 @@ struct StationScheduleView: View {
     }
     .padding(.top, 12)
     .background(.backgroundPrimary)
+    .sheet(isPresented: $isPresentingAlarmConfiguration) {
+      AlarmConfigurationSheetContainer()
+    }
     .task {
       await loadTrainSchedule()
     }
@@ -454,6 +457,22 @@ struct StationScheduleView: View {
         }
 
         // Build journey data similar to AddTrainView
+        // Ensure stations are loaded before building lookup
+        if mapStore.stations.isEmpty {
+          // Load stations data if not already loaded
+          guard let lastUpdatedAt = mapStore.lastUpdatedAt else {
+            showToast("Data stasiun tidak tersedia")
+            return
+          }
+          
+          do {
+            try await mapStore.loadData(at: lastUpdatedAt)
+          } catch {
+            showToast("Gagal memuat data stasiun")
+            return
+          }
+        }
+        
         let stationsById = StationLookupHelper.buildStationsById(mapStore.stations)
 
         guard let fromStation = stationsById[currentStationId],
@@ -513,8 +532,7 @@ struct StationScheduleView: View {
         if !AlarmPreferences.shared.hasCompletedInitialSetup {
           mapStore.pendingTrainForAlarmConfiguration = projectedTrain
           mapStore.pendingJourneyDataForAlarmConfiguration = journeyData
-          dismiss()
-          router.navigate(to: .sheet(.alarmConfiguration))
+          isPresentingAlarmConfiguration = true
         } else {
           // Start tracking immediately
           try await mapStore.selectTrain(
@@ -617,6 +635,7 @@ private struct TrainGroupCard: View {
           }
         }
         .padding(16)
+        .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
 
